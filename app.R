@@ -4,6 +4,7 @@ library(tidyverse,
 library(shiny, 
         shinyFeeedback)
 library(scales)
+library(shinycssloaders)
 
 # Constants
 Min_Wage <- 17.2
@@ -22,10 +23,49 @@ ui <- fluidPage(
   navbarPage(
     titlePanel("Social Assistance Income Calculator"),
     tabPanel("Introduction",
-             textOutput("Intro")
-             ),
+             fluidPage(
+             textOutput("App_Intro")
+             )
+    ),
     tabPanel("About Me",
-             ),
+             fluidPage(
+               fluidRow(
+                 column(5,
+                        selectInput("Program",
+                                    "Which social assistance program do you want to use for calculations?",
+                                    c("Ontario Works", "Ontario Disability Support Program (ODSP)")
+                                    )
+                        )
+               ),
+               fluidRow(
+                 column(5, 
+                        selectInput("Spouse",
+                                      "Do you have a spouse or common law partner?",
+                                      c("No", "Yes")
+                        )
+                 )
+               ),
+               fluidRow(
+                 column(6,
+                        conditionalPanel(condition = "input.Program == 'Ontario Disability Support Program (ODSP)' && input.Spouse == 'Yes'",
+                        selectInput("User_Disability",
+                                    "Has ODSP determined that you have a disability?",
+                                    c("Yes", "No")
+                                    )
+                        )
+                        ),
+                 column(6,
+                        conditionalPanel(
+                          condition = "input.Program == 'Ontario Disability Support Program (ODSP)' && input.Spouse == 'Yes'",
+                          selectInput("Spouse_Disability",
+                                      "Has ODSP determined that your spouse has a disability?",
+                                      c("No", "Yes")
+                          )
+                   )
+                 )
+               )
+             )
+    ),
     tabPanel("Work Scenarios",
              fluidRow(
                column(3
@@ -81,10 +121,11 @@ ui <- fluidPage(
     tabPanel("Income Results",
              fluidRow(
                column(9
-                      , plotOutput("Income_Plot"
+                      , withSpinner(plotOutput("Income_Plot"
+                                               )
+                                    )
                       )
-               )
-             )
+                      )
              ),
     tabPanel("More Information")
   )
