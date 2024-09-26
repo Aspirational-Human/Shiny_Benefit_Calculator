@@ -24,11 +24,28 @@ ui <- fluidPage(
     titlePanel("Social Assistance Income Calculator"),
     tabPanel("Introduction",
              fluidPage(
-             textOutput("App_Intro")
+               h2("Welcome to the Ontario Social Assistance Income Calculator"),
+               HTML("This online calculator can help you estimate how income from work will affect:
+                    <ul>
+                    <li>social assistance payments from <strong>Ontario Works</strong> or <strong>Ontario Disability Support Program (ODSP)</strong></li>
+                    <li>income tax refunds</li>
+                    <li>other benefit payments from federal and provincial programs</li>
+                    </ul>
+                    This calculator is <strong>free</strong> to use and does <strong>not</strong> collect or store your personal information. This calculator is made avaiable without any warranty as to the accuracy of its calculations.
+                    <br>
+                    <br>
+                    There are three steps to using this calculator:
+                    <ol>
+                    <li> Fill out the information in the <strong>About Me</strong> tab to make the calculations relevant to you and your family.</li>
+                    <li> Provide three <strong>Work Scenarios</strong> for which you would like income, social assistance, tax and other benefit estimates.</li>
+                    <li> Review the <strong>Income Results</strong> tab to see estimates for each work scenario and go back and adjust the work scenarios as needed.</li>"
+                    )
              )
     ),
     tabPanel("About Me",
              fluidPage(
+               h2("About Me"),
+               HTML("Please answer all of the questions on this page to make the calculator results relevant to your situation.<br>"),
                fluidRow(
                  column(5,
                         selectInput("Program",
@@ -63,14 +80,48 @@ ui <- fluidPage(
                           )
                    )
                  )
+               ),
+               fluidRow(
+                 column(6,
+                        numericInput("Dependents",
+                                    "How many dependents are in your household?",
+                                    value = 0
+                                    , min = 0
+                                    , max = 12
+                                    )
+                        )
                )
              )
     ),
     tabPanel("Work Scenarios",
+             fluidPage(
+               h2("Work Scenarios"),
+               HTML("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
+                    <ul>
+                    <li><strong>Scenario 1</strong> has been set to your current situation.</li>
+                    <li><strong>Scenario 2</strong> has been set to part-time employment at minimum wage.</li>
+                    <li><strong>Scenario 3</strong> has been set to full-time employment at minimum wage.</li>
+                    </ul>"
+                    ),
              fluidRow(
-               column(3
-                      , textOutput("Scenario_1")
-                      , numericInput("Wage_1"
+               column(4, 
+                      h3("Scenario 1"),
+                      radioButtons("Format_1"
+                                   , "Prefered income format"
+                                   , c("Hourly Wage", "Monthly take-home pay")
+                                   )
+                      ),
+               column(4, h3("Scenario 2")),
+               column(4, h3("Scenario 3"))
+               ),
+             # fluidRow(
+             #   column(2, actionButton("Wage_Button_1", "Hourly Wage")),
+             #   column(2, actionButton("Income_Button_1", "Take Home Pay"))
+             # ),
+             fluidRow(
+               column(4,
+                      # , h3("Scenario 1")
+                      numericInput("Wage_1"
                                      , "Wage"
                                      , value = 17.20
                                      , min = 0
@@ -82,9 +133,9 @@ ui <- fluidPage(
                                      , min = 0
                                      , max = 60
                       )
-               )
-               , column(3
-                        , textOutput("Scenario_2")
+                      )
+               , column(4
+                        # , h3("Scenario 2")
                         , numericInput("Wage_2"
                                        , "Wage"
                                        , value = 17.20
@@ -98,8 +149,8 @@ ui <- fluidPage(
                                        , max = 60
                         )
                )
-               , column(3
-                        , textOutput("Scenario_3")
+               , column(4
+                        # , h3("Scenario 3")
                         , numericInput("Wage_3"
                                        , "Wage"
                                        , value = 17.20
@@ -117,6 +168,7 @@ ui <- fluidPage(
              # , actionButton("Calculate"
              #                , "Calculate"
              # ) 
+             )
              ),
     tabPanel("Income Results",
              fluidRow(
@@ -129,7 +181,7 @@ ui <- fluidPage(
              ),
     tabPanel("More Information")
   )
-)
+  )
 server <- function(input, output, session) {
   # Error messages
   observeEvent(input$Wage_1, {
@@ -159,10 +211,14 @@ server <- function(input, output, session) {
                                    )
     )
   })
-  output$Intro <- renderText("This app is designed to help you understand how your income changes based on your employment status.")
-  output$Scenario_1 <- renderText("Unemployed")
-  output$Scenario_2 <- renderText("Employed Part Time")
-  output$Scenario_3 <- renderText("Employed Full Time")
+  observeEvent(input$Spouse, {
+    label <- if(input$Spouse == "Yes") {
+      "How many dependents (not including your spouse) are in your household?"
+    } else {
+      "How many dependents are in your household?"
+    }
+    updateNumericInput(session = getDefaultReactiveDomain(), "Dependents", label = label)
+  })
   Calcd_Income_1 <- reactive({
     # Legal_Wage <- input$Wage_1 >= 17.2
     # shinyFeedback::feedbackWarning("Wage_1", 
