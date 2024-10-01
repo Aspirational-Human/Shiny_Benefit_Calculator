@@ -5,18 +5,45 @@ library(shiny,
         shinyFeeedback)
 library(scales)
 library(shinycssloaders)
+library(bslib)
 
 # Constants
 Min_Wage <- 17.2
+Primary_Color <- "#2039FF"
+Scenario_1_Color <- "#FB89B0"
+Scenario_2_Color <- "#89B0FB"
+Scenario_3_Color <- "#B0FB89"
 # Functions
 Income_Calc <- function(Wage
                         , Hours) {
   Wage * Hours
 }
 
+custom_theme <- bs_theme(bootswatch = "united") %>%
+  bs_add_variables(
+     "primary" = Primary_Color,
+    # "$secondary" = "#89B0FB",
+    # "$success" = "#B0FB89",
+    # "$info" = "#FB89B0",
+    # "$warning" = "#89B0FB",
+     "danger" = Scenario_1_Color,
+     "light" = Scenario_2_Color,
+     "dark" = Scenario_3_Color
+    #"gray-100" = "#B0FB89"
+    # "$gray-200" = "#FB89B0",
+    # "$gray-300" = "#89B0FB",
+    # "$gray-400" = "#B0FB89",
+    # "$gray-500" = "#FB89B0",
+    # "$gray-600" = "#89B0FB",
+    # "$gray-700" = "#B0FB89",
+    # "$gray-800" = "#FB89B0",
+    # "$gray-900" = "#89B0FB"
+  )
+
 ui <- fluidPage(
   # Setting the look and feel of the app.
-  theme = bslib::bs_theme(bootswatch = "united"),
+  #theme = bslib::bs_theme(bootswatch = "united"),
+  theme = custom_theme,
   # Setting up the ability to provide dynamic user feedback.
   shinyFeedback::useShinyFeedback(),
   # Creating tabs to organize the content of the shiny app. 
@@ -96,80 +123,144 @@ ui <- fluidPage(
     tabPanel("Work Scenarios",
              fluidPage(
                h2("Work Scenarios"),
-               HTML("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
+               HTML(paste0("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
                     <ul>
-                    <li><strong>Scenario 1</strong> has been set to your current situation.</li>
+                    <li><span style='background-color:", Scenario_1_Color, ";'><strong>Scenario 1</strong></span> has been set to your current situation.</li>
                     <li><strong>Scenario 2</strong> has been set to part-time employment at minimum wage.</li>
                     <li><strong>Scenario 3</strong> has been set to full-time employment at minimum wage.</li>
                     </ul>"
+                    )
                     ),
-             fluidRow(
-               column(4, 
-                      h3("Scenario 1"),
+               layout_column_wrap(
+                 width = 1/3,
+                 # height = 300,
+                 card(card_title("Scenario 1"),
+                      class = "bg-danger",
                       radioButtons("Format_1"
-                                   , "Prefered income format"
-                                   , c("Hourly Wage", "Monthly take-home pay")
-                                   )
-                      ),
-               column(4, h3("Scenario 2")),
-               column(4, h3("Scenario 3"))
-               ),
-             # fluidRow(
-             #   column(2, actionButton("Wage_Button_1", "Hourly Wage")),
-             #   column(2, actionButton("Income_Button_1", "Take Home Pay"))
-             # ),
-             fluidRow(
-               column(4,
-                      # , h3("Scenario 1")
+                                    , "Prefered income format"
+                                    , c("Hourly Wage", "Monthly take-home pay")
+                                    ),
                       numericInput("Wage_1"
-                                     , "Wage"
-                                     , value = 17.20
-                                     , min = 0
-                                     , max = 100
-                      )
-                      , numericInput("Hours_1"
+                                   , "Wage"
+                                   , value = 17.20
+                                   , min = 0
+                                   , max = 100
+                      ),
+                      numericInput("Hours_1"
                                      , "You can change hours here to see another employment scenario"
                                      , value = 0
                                      , min = 0
                                      , max = 60
                       )
+                      ),
+                 card(card_title("Scenario 2"),
+                      class = "bg-orange",
+                      radioButtons("Format_2"
+                                    , "Prefered income format"
+                                    , c("Hourly Wage", "Monthly take-home pay")
+                                    ),
+                      numericInput("Wage_2"
+                                   , "Wage"
+                                   , value = 17.20
+                                   , min = 0
+                                   , max = 100
+                      ),
+                      numericInput("Hours_2"
+                                   , "Part-time hours could me more or less than 17 per week"
+                                   , value = 17
+                                   , min = 0
+                                   , max = 60
                       )
-               , column(4
-                        # , h3("Scenario 2")
-                        , numericInput("Wage_2"
-                                       , "Wage"
-                                       , value = 17.20
-                                       , min = 0
-                                       , max = 100
-                        )
-                        , numericInput("Hours_2"
-                                       , "Part-time hours could me more or less than 17 per week"
-                                       , value = 17
-                                       , min = 0
-                                       , max = 60
-                        )
+                      ),
+                 card(card_title("Scenario 3"),
+                      class = "bg-green",
+                      radioButtons("Format_3"
+                                    , "Prefered income format"
+                                    , c("Hourly Wage", "Monthly take-home pay")
+                                    ),
+                      numericInput("Wage_3"
+                                   , "Wage"
+                                   , value = 17.20
+                                   , min = 0
+                                   , max = 100
+                      ),
+                      numericInput("Hours_3"
+                                   , "Full-time typically starts at 30 hours per week. Overtime starts after 44 hours per week"
+                                   , value = 35
+                                   , min = 0
+                                   , max = 60
+                      )
+                      )
                )
-               , column(4
-                        # , h3("Scenario 3")
-                        , numericInput("Wage_3"
-                                       , "Wage"
-                                       , value = 17.20
-                                       , min = 0
-                                       , max = 100
-                        )
-                        , numericInput("Hours_3"
-                                       , "Full-time typically starts at 30 hours per week. Overtime starts after 44 hours per week"
-                                       , value = 35
-                                       , min = 0
-                                       , max = 60
-                        )
                )
-             )
-             # , actionButton("Calculate"
-             #                , "Calculate"
-             # ) 
-             )
              ),
+             # fluidRow(
+             #   column(4, 
+             #          h3("Scenario 1"),
+             #          # radioButtons("Format_1"
+             #          #              , "Prefered income format"
+             #          #              , c("Hourly Wage", "Monthly take-home pay")
+             #          #              )
+             #          ),
+             #   column(4, h3("Scenario 2")),
+             #   column(4, h3("Scenario 3"))
+             #   ),
+             # # fluidRow(
+             # #   column(2, actionButton("Wage_Button_1", "Hourly Wage")),
+             # #   column(2, actionButton("Income_Button_1", "Take Home Pay"))
+             # # ),
+             # fluidRow(
+             #   column(4,
+             #          # , h3("Scenario 1")
+             #          numericInput("Wage_1"
+             #                         , "Wage"
+             #                         , value = 17.20
+             #                         , min = 0
+             #                         , max = 100
+             #          )
+             #          , numericInput("Hours_1"
+             #                         , "You can change hours here to see another employment scenario"
+             #                         , value = 0
+             #                         , min = 0
+             #                         , max = 60
+             #          )
+             #          )
+             #   , column(4
+             #            # , h3("Scenario 2")
+             #            , numericInput("Wage_2"
+             #                           , "Wage"
+             #                           , value = 17.20
+             #                           , min = 0
+             #                           , max = 100
+             #            )
+             #            , numericInput("Hours_2"
+             #                           , "Part-time hours could me more or less than 17 per week"
+             #                           , value = 17
+             #                           , min = 0
+             #                           , max = 60
+             #            )
+             #   )
+             #   , column(4
+             #            # , h3("Scenario 3")
+             #            , numericInput("Wage_3"
+             #                           , "Wage"
+             #                           , value = 17.20
+             #                           , min = 0
+             #                           , max = 100
+             #            )
+             #            , numericInput("Hours_3"
+             #                           , "Full-time typically starts at 30 hours per week. Overtime starts after 44 hours per week"
+             #                           , value = 35
+             #                           , min = 0
+             #                           , max = 60
+             #            )
+             #   )
+             # )
+             # # , actionButton("Calculate"
+             # #                , "Calculate"
+             # # ) 
+             # )
+             # ),
     tabPanel("Income Results",
              fluidRow(
                column(9
