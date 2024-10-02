@@ -4,8 +4,11 @@ library(tidyverse,
 library(shiny, 
         shinyFeeedback)
 library(scales)
+library(shinyWidgets)
 library(shinycssloaders)
 library(bslib)
+library(thematic)
+library(bsplus)
 
 # Constants
 Min_Wage <- 17.2
@@ -46,6 +49,7 @@ ui <- fluidPage(
   theme = custom_theme,
   # Setting up the ability to provide dynamic user feedback.
   shinyFeedback::useShinyFeedback(),
+  use_bs_tooltip(),
   # Creating tabs to organize the content of the shiny app. 
   navbarPage(
     titlePanel("Social Assistance Income Calculator"),
@@ -72,27 +76,36 @@ ui <- fluidPage(
     tabPanel("About Me",
              fluidPage(
                h2("About Me"),
-               HTML("Please answer all of the questions on this page to make the calculator results relevant to your situation.<br>"),
+               HTML("Please answer all of the questions on this page to make the calculator results relevant to your situation.<br><br><br>"),
                fluidRow(
-                 column(5,
+                 column(6,
                         selectInput("Program",
                                     "Which social assistance program do you want to use for calculations?",
                                     c("Ontario Works", "Ontario Disability Support Program (ODSP)")
                                     )
+                        ),
+                 column(6,
+                        autonumericInput("SA_Payment",
+                                         "What is your typical monthly Ontario Works payment?",
+                                          value = "",
+                                          min = 0,
+                                          currencySymbol = "$"
+                                        )
                         )
                ),
                fluidRow(
                  column(5, 
-                        selectInput("Spouse",
+                        tags$div(selectInput("Spouse",
                                       "Do you have a spouse or common law partner?",
-                                      c("No", "Yes")
+                                      c("No", "Yes")),
+                                    id = "Spouse_Tip"
                         )
                  )
                ),
                fluidRow(
                  column(6,
                         conditionalPanel(condition = "input.Program == 'Ontario Disability Support Program (ODSP)' && input.Spouse == 'Yes'",
-                        selectInput("User_Disability",
+                        selectInput("Disability_P",
                                     "Has ODSP determined that you have a disability?",
                                     c("Yes", "No")
                                     )
@@ -101,7 +114,7 @@ ui <- fluidPage(
                  column(6,
                         conditionalPanel(
                           condition = "input.Program == 'Ontario Disability Support Program (ODSP)' && input.Spouse == 'Yes'",
-                          selectInput("Spouse_Disability",
+                          selectInput("Disability_S",
                                       "Has ODSP determined that your spouse has a disability?",
                                       c("No", "Yes")
                           )
@@ -110,15 +123,45 @@ ui <- fluidPage(
                ),
                fluidRow(
                  column(6,
+                        autonumericInput("Income_PM",
+                                         "What is your typical monthly take-home pay from work?",
+                                         value = 0,
+                                         min = 0,
+                                         currencySymbol = "$"
+                                         ) %>%
+                          bs_embed_tooltip(title = "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP.",
+                                           placement = "right"
+                                           )
+                        ),
+                 column(6,
+                        conditionalPanel(
+                          condition = "input.Spouse == 'Yes'",
+                          autonumericInput("Income_SM",
+                                           "What is your spouse's typical monthly take-home pay from work?",
+                                           value = 0,
+                                           min = 0,
+                                           currencySymbol = "$"
+                                          )
+                        )
+                        )
+               ),
+               fluidRow(
+                 column(6,
                         numericInput("Dependents",
-                                    "How many dependents are in your household?",
+                                    "How many dependents (not including you) are in your household?",
                                     value = 0
                                     , min = 0
                                     , max = 12
                                     )
                         )
+               ),
+               # bsTooltip(id = "Spouse_Tip",
+               #           title = "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP.",
+               #           placement = "right",
+               #           trigger = "hover"
+               #           # options = NULL
+               # )
                )
-             )
     ),
     tabPanel("Work Scenarios",
              fluidPage(
@@ -126,8 +169,8 @@ ui <- fluidPage(
                HTML(paste0("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
                     <ul>
                     <li><span style='background-color:", Scenario_1_Color, ";'><strong>Scenario 1</strong></span> has been set to your current situation.</li>
-                    <li><strong>Scenario 2</strong> has been set to part-time employment at minimum wage.</li>
-                    <li><strong>Scenario 3</strong> has been set to full-time employment at minimum wage.</li>
+                    <li><span style='background-color:", Scenario_2_Color, ";'><strong>Scenario 2</strong></span> has been set to part-time employment at minimum wage.</li>
+                    <li><span style='background-color:", Scenario_3_Color, ";'><strong>Scenario 3</strong></span> has been set to full-time employment at minimum wage.</li>
                     </ul>"
                     )
                     ),
@@ -140,52 +183,55 @@ ui <- fluidPage(
                                     , "Prefered income format"
                                     , c("Hourly Wage", "Monthly take-home pay")
                                     ),
-                      numericInput("Wage_1"
-                                   , "Wage"
-                                   , value = 17.20
-                                   , min = 0
-                                   , max = 100
+                      autonumericInput("Wage_1"
+                                       , "Hourly wage"
+                                       , value = 17.20
+                                       , min = 0
+                                       , max = 100
+                                       , currencySymbol = "$"
                       ),
                       numericInput("Hours_1"
-                                     , "You can change hours here to see another employment scenario"
+                                     , "Hours worked per week"
                                      , value = 0
                                      , min = 0
                                      , max = 60
                       )
                       ),
                  card(card_title("Scenario 2"),
-                      class = "bg-orange",
+                      class = "bg-light",
                       radioButtons("Format_2"
                                     , "Prefered income format"
                                     , c("Hourly Wage", "Monthly take-home pay")
                                     ),
-                      numericInput("Wage_2"
-                                   , "Wage"
+                      autonumericInput("Wage_2"
+                                   , "Hourly wage"
                                    , value = 17.20
                                    , min = 0
                                    , max = 100
+                                   , currencySymbol = "$"
                       ),
                       numericInput("Hours_2"
-                                   , "Part-time hours could me more or less than 17 per week"
+                                   , "Hours worked per week"
                                    , value = 17
                                    , min = 0
                                    , max = 60
                       )
                       ),
                  card(card_title("Scenario 3"),
-                      class = "bg-green",
+                      class = "bg-dark",
                       radioButtons("Format_3"
                                     , "Prefered income format"
                                     , c("Hourly Wage", "Monthly take-home pay")
                                     ),
-                      numericInput("Wage_3"
-                                   , "Wage"
+                      autonumericInput("Wage_3"
+                                   , "Hourly wage"
                                    , value = 17.20
                                    , min = 0
                                    , max = 100
+                                   , currencySymbol = "$"
                       ),
                       numericInput("Hours_3"
-                                   , "Full-time typically starts at 30 hours per week. Overtime starts after 44 hours per week"
+                                   , "Hours worked per week"
                                    , value = 35
                                    , min = 0
                                    , max = 60
@@ -274,6 +320,7 @@ ui <- fluidPage(
   )
   )
 server <- function(input, output, session) {
+  thematic::thematic_shiny()
   # Error messages
   observeEvent(input$Wage_1, {
     shinyFeedback::feedbackWarning("Wage_1",
@@ -304,45 +351,50 @@ server <- function(input, output, session) {
   })
   observeEvent(input$Spouse, {
     label <- if(input$Spouse == "Yes") {
-      "How many dependents (not including your spouse) are in your household?"
+      "How many dependents (not including you or your spouse) are in your household?"
     } else {
-      "How many dependents are in your household?"
+      "How many dependents (not including you) are in your household?"
     }
     updateNumericInput(session = getDefaultReactiveDomain(), "Dependents", label = label)
   })
+  Program_Name <- reactive({
+    if(input$Program == "Ontario Works") {
+      "Ontario Works"
+    } else {
+      "ODSP"
+    }
+  })
+  observeEvent(input$Program, {
+    label <- paste0("What is your typical monthly ", Program_Name(), " payment?")
+    updateAutonumericInput(session = getDefaultReactiveDomain(), "SA_Payment", label = label)
+  })
   Calcd_Income_1 <- reactive({
-    # Legal_Wage <- input$Wage_1 >= 17.2
-    # shinyFeedback::feedbackWarning("Wage_1", 
-    #                                !Legal_Wage, 
-    #                                "Ontario minimum wage is $17.20 per hour."
-    #                                )
-    # req(Legal_Wage, cancelOutput = TRUE)
-    
     Income_Calc(input$Wage_1,
                 input$Hours_1
     )
     })
-    Calcd_Income_2 <- reactive({
+  Calcd_Income_2 <- reactive({
       Income_Calc(input$Wage_2
                   , input$Hours_2
                   )
                                                       }
                                     )
-    Calcd_Income_3 <- reactive({
+  Calcd_Income_3 <- reactive({
       Income_Calc(input$Wage_3
                   , input$Hours_3
                    )
     })
-    Income_Tibble <- reactive(tibble(Calcd_Income = c(Calcd_Income_1()
+  Income_Tibble <- reactive(tibble(Calcd_Income = c(Calcd_Income_1()
                                                           , Calcd_Income_2()
                                                           , Calcd_Income_3()
                                                           )
-                                     , Scenario = c(1:3)
+                                     , Scenario = as.factor(c(1:3))
                                      )
                               )
-    output$Income_Plot <- renderPlot({
-      ggplot(Income_Tibble(), aes(x = Scenario, y = Calcd_Income)) +
-        geom_col()
+   output$Income_Plot <- renderPlot({
+      ggplot(Income_Tibble(), aes(x = Scenario, y = Calcd_Income, fill = Scenario)) +
+        geom_col() +
+        scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
     }, res = 96
     )
 }
