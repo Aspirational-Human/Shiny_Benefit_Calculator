@@ -232,89 +232,24 @@ ui <- fluidPage(
                  # Scenario 2 Card.
                  card(card_title("Scenario 2"),
                       class = "bg-light",
-                      fluidRow(
-                        column(12,
-                               radioButtons("Format_2"
-                                            , "Prefered income format"
-                                            , c("Hourly Wage", "Monthly take-home pay")
-                               )
-                               )
-                      ),
+                      radioButtons(
+                        "Format_2",
+                        "Prefered income format",
+                        c("Hourly Wage", "Monthly take-home pay")
+                        ),
                       uiOutput("Scen_2_Parameters")
-                      # layout_column_wrap(
-                      #   width = "100px",
-                      #   h5("What if I worked...?"),
-                      #   conditionalPanel(
-                      #     condition = "input.Spouse == 'Yes'",
-                      #     h5("What if my spouse worked...?")
-                      #   ),
-                      #   numericInput(
-                      #     "Hours_2_PW",
-                      #     HTML("<br>My weekly work hours"),
-                      #     value = 17,
-                      #     min = 0,
-                      #     max = 60
-                      #   ),
-                      #   conditionalPanel(
-                      #     condition = "input.Spouse == 'Yes'",
-                      #     numericInput(
-                      #       "Hours_2_SW",
-                      #       "Spouse's weekly work hours",
-                      #       value = 17,
-                      #       min = 0,
-                      #       max = 60
-                      #     )
-                      #   ),
-                      #   autonumericInput(
-                      #     "Wage_2_P",
-                      #     "My hourly wage",
-                      #     value = 17.2,
-                      #     min = 17.2,
-                      #     max = 100,
-                      #     currencySymbol = "$"
-                      #   ),
-                      #   conditionalPanel(
-                      #     condition = "input.Spouse == 'Yes'",
-                      #     autonumericInput(
-                      #       "Wage_2_S",
-                      #       "Spouse's hourly wage",
-                      #       value = 17.2,
-                      #       min = 17.2,
-                      #       max = 100,
-                      #       currencySymbol = "$"
-                      #     )
-                      #   )
-                      # )
                       ),
                  # Scenario 3 Card.
                  card(card_title("Scenario 3"),
                       class = "bg-dark",
-                      radioButtons("Format_3"
-                                    , "Prefered income format"
-                                    , c("Hourly Wage", "Monthly take-home pay")
-                                    ),
-                      layout_column_wrap(
-                        width = 1/1,
-                        fill = FALSE,
-                        heights_equal = "row",
-                        h5("What if I worked...?"),
-                        autonumericInput("Wage_3"
-                                         , "Hourly wage"
-                                         , value = 17.20
-                                         , min = 0
-                                         , max = 100
-                                         , currencySymbol = "$"
+                      radioButtons(
+                        "Format_3",
+                        "Prefered income format",
+                        c("Hourly Wage", "Monthly take-home pay")
                         ),
-                        numericInput("Hours_3"
-                                     , "Hours worked per week"
-                                     , value = 35
-                                     , min = 0
-                                     , max = 60
-                        )
+                      uiOutput("Scen_3_Parameters")
                       )
-                      )
-               )
-               # )
+                 )
              ),
     tabPanel("Income Results",
              fluidRow(
@@ -542,6 +477,101 @@ server <- function(input, output, session) {
               "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP."
               ),
             value = 1170,
+            min = 0,
+            currencySymbol = "$"
+          )
+        )
+      )
+    }
+  })
+  # Scenario 3 parameters
+  output$Scen_3_Parameters <- renderUI( {
+    if(input$Format_3 == "Hourly Wage") {
+      layout_column_wrap(
+        width = 1/Spouse_Denom(),
+        fill = FALSE,
+        heights_equal = "row",
+        h5("What if I worked...?"),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          h5("What if my spouse worked...?"),
+        ),
+        autonumericInput("Hours_3_P"
+                         , HTML(paste0(
+                           "My weekly work ",
+                           Spouse_Break(),
+                           "hours"
+                         )),
+                         , value = 35
+                         , min = 0
+                         , max = 60
+                         , decimalPlaces = 0
+        ),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          autonumericInput(
+            "Hours_3_S",
+            "Spouse's weekly work hours",
+            value = 35,
+            min = 0,
+            max = 60,
+            decimalPlaces = 0
+          )
+        ),
+        autonumericInput("Wage_3_P"
+                         , "My hourly wage"
+                         , value = 17.20
+                         , min = 17.20
+                         , max = 100
+                         , currencySymbol = "$"
+        ),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          autonumericInput(
+            "Wage_3_S",
+            "Spouse's hourly wage",
+            value = 17.20,
+            min = 17.20,
+            max = 100,
+            currencySymbol = "$"
+          )
+        )
+      )
+    } else {
+      layout_column_wrap(
+        width = 1/Spouse_Denom(),
+        fill = FALSE,
+        heights_equal = "row",
+        h5("What if I worked...?"),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          h5("What if my spouse worked...?"),
+        ),
+        autonumericInput(
+          "Income_3_PM",
+          label = tooltip(
+            trigger = list(
+              "My monthly take-home pay from work",
+              Help_Icon("Info about take-home pay")
+              ),
+            "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP."
+            ),
+          value = 2400,
+          min = 0,
+          currencySymbol = "$"
+          ),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          autonumericInput(
+            "Income_3_SM",
+            label = tooltip(
+              trigger = list(
+                "Spouse's monthly take-home pay from work",
+                Help_Icon("Info about spousal income")
+                ),
+              "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP."
+              ),
+            value = 2400,
             min = 0,
             currencySymbol = "$"
           )
