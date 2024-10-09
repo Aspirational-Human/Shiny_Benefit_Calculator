@@ -106,7 +106,7 @@ ui <- fluidPage(
                           value = "",
                           min = 0,
                           currencySymbol = "$"
-                          ),
+                          )
                           ),
                  column(1,
                         tooltip(
@@ -165,7 +165,7 @@ ui <- fluidPage(
                                          ),
                                          value = 0,
                                          min = 0,
-                                         currencySymbol = "$",
+                                         currencySymbol = "$"
                                          )
                         ),
                  column(6,
@@ -207,7 +207,7 @@ ui <- fluidPage(
                                     , max = 12
                                     )
                         )
-               ),
+               )
     ),
     # Work scenarios tab ----------------
     tabPanel("Work Scenarios",
@@ -223,11 +223,12 @@ ui <- fluidPage(
                     ),
                layout_column_wrap(
                  width = 1/3,
-                 # height = 300,
+                 # Scenario 1 Card.
                  card(card_title("Scenario 1 - Current Situation"),
                       class = "bg-danger",
-                      htmlOutput("Scenario_1_Descript")
+                      htmlOutput("Scen_1_Descript")
                       ),
+                 # Scenario 2 Card.
                  card(card_title("Scenario 2"),
                       class = "bg-light",
                       fluidRow(
@@ -238,44 +239,77 @@ ui <- fluidPage(
                                )
                                )
                       ),
-                      fluidRow(
-                        column(6,
-                               autonumericInput("Wage_2"
-                                                , "Hourly wage"
-                                                , value = 17.20
-                                                , min = 0
-                                                , max = 100
-                                                , currencySymbol = "$"
-                               )
-                               ),
-                        column(6,
-                               numericInput("Hours_2"
-                                            , "Hours worked per week"
-                                            , value = 17
-                                            , min = 0
-                                            , max = 60
-                               )
-                               )
-                      )
+                      uiOutput("Scen_2_Parameters")
+                      # layout_column_wrap(
+                      #   width = "100px",
+                      #   h5("What if I worked...?"),
+                      #   conditionalPanel(
+                      #     condition = "input.Spouse == 'Yes'",
+                      #     h5("What if my spouse worked...?")
+                      #   ),
+                      #   numericInput(
+                      #     "Hours_2_PW",
+                      #     HTML("<br>My weekly work hours"),
+                      #     value = 17,
+                      #     min = 0,
+                      #     max = 60
+                      #   ),
+                      #   conditionalPanel(
+                      #     condition = "input.Spouse == 'Yes'",
+                      #     numericInput(
+                      #       "Hours_2_SW",
+                      #       "Spouse's weekly work hours",
+                      #       value = 17,
+                      #       min = 0,
+                      #       max = 60
+                      #     )
+                      #   ),
+                      #   autonumericInput(
+                      #     "Wage_2_P",
+                      #     "My hourly wage",
+                      #     value = 17.2,
+                      #     min = 17.2,
+                      #     max = 100,
+                      #     currencySymbol = "$"
+                      #   ),
+                      #   conditionalPanel(
+                      #     condition = "input.Spouse == 'Yes'",
+                      #     autonumericInput(
+                      #       "Wage_2_S",
+                      #       "Spouse's hourly wage",
+                      #       value = 17.2,
+                      #       min = 17.2,
+                      #       max = 100,
+                      #       currencySymbol = "$"
+                      #     )
+                      #   )
+                      # )
                       ),
+                 # Scenario 3 Card.
                  card(card_title("Scenario 3"),
                       class = "bg-dark",
                       radioButtons("Format_3"
                                     , "Prefered income format"
                                     , c("Hourly Wage", "Monthly take-home pay")
                                     ),
-                      autonumericInput("Wage_3"
-                                   , "Hourly wage"
-                                   , value = 17.20
-                                   , min = 0
-                                   , max = 100
-                                   , currencySymbol = "$"
-                      ),
-                      numericInput("Hours_3"
-                                   , "Hours worked per week"
-                                   , value = 35
-                                   , min = 0
-                                   , max = 60
+                      layout_column_wrap(
+                        width = 1/1,
+                        fill = FALSE,
+                        heights_equal = "row",
+                        h5("What if I worked...?"),
+                        autonumericInput("Wage_3"
+                                         , "Hourly wage"
+                                         , value = 17.20
+                                         , min = 0
+                                         , max = 100
+                                         , currencySymbol = "$"
+                        ),
+                        numericInput("Hours_3"
+                                     , "Hours worked per week"
+                                     , value = 35
+                                     , min = 0
+                                     , max = 60
+                        )
                       )
                       )
                )
@@ -386,7 +420,8 @@ server <- function(input, output, session) {
                            )
   })
   # Work scenarios tab server ---------------
-  output$Scenario_1_Descript <- renderText({
+  # Dynamic description of current situation displayed in Scenario 1 card.
+  output$Scen_1_Descript <- renderText({
     Spousal_Descript <- if(input$Spouse == "Yes"){
       paste0(
         "<li>and ",
@@ -403,6 +438,74 @@ server <- function(input, output, session) {
       "</ul>You can return to the <strong>About Me</strong> tab if you would like to change the work income for Scenario 1."
       )
   })
+  # Dynamically sized Scenario 2 card elements to accommodate spouse items.
+  Spouse_Denom <- eventReactive(input$Spouse, {
+    if(input$Spouse == "Yes") {
+      2
+    } else {
+      1
+    }
+  })
+  Spouse_Break <- eventReactive(input$Spouse, {
+    if(input$Spouse == "Yes") {
+      "<br>"
+    } else {
+      ""
+    }
+  })
+  # Scenario 2 parameter items.
+  output$Scen_2_Parameters <- renderUI( {
+    layout_column_wrap(
+      width = 1/Spouse_Denom(),
+      fill = FALSE,
+      heights_equal = "row",
+      h5("What if I worked...?"),
+      conditionalPanel(
+        condition = "input.Spouse == 'Yes'",
+        h5("What if my spouse worked...?"),
+      ),
+      autonumericInput("Hours_2_PW"
+                   , HTML(paste0(
+                     "My weekly work ",
+                     Spouse_Break(),
+                     "hours"
+                     )),
+                   , value = 17
+                   , min = 0
+                   , max = 60
+                   , decimalPlaces = 0
+      ),
+      conditionalPanel(
+        condition = "input.Spouse == 'Yes'",
+        autonumericInput(
+          "Hours_2_SW",
+          "Spouse's weekly work hours",
+          value = 17,
+          min = 0,
+          max = 60,
+          decimalPlaces = 0
+        )
+      ),
+      autonumericInput("Wage_2_P"
+                       , "My hourly wage"
+                       , value = 17.20
+                       , min = 17.20
+                       , max = 100
+                       , currencySymbol = "$"
+      ),
+      conditionalPanel(
+        condition = "input.Spouse == 'Yes'",
+        autonumericInput(
+          "Wage_2_S",
+          "Spouse's hourly wage",
+          value = 17.20,
+          min = 17.20,
+          max = 100,
+          currencySymbol = "$"
+        )
+      )
+    )
+  })
   # Income results tab server ---------------
   Calcd_Income_1 <- reactive({
     sum(
@@ -412,8 +515,8 @@ server <- function(input, output, session) {
     )
     })
   Calcd_Income_2 <- reactive({
-      Income_Calc(input$Wage_2
-                  , input$Hours_2
+      Income_Calc(input$Wage_2_P
+                  , input$Hours_2_PW
                   )
                                                       }
                                     )
