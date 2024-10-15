@@ -1,6 +1,10 @@
+## Task for tomorrow:
+# Change all income names to either Take_Home_Pay or Gross_Inc
+
+
+
 # Packages
-library(tidyverse,
-        readr)
+library(tidyverse)
 library(shiny) 
 library(shinyFeedback)
 library(scales)
@@ -13,16 +17,36 @@ library(bsplus)
 library(htmltools)
 library(shinythemes)
 
-# Constants
+# Income constants ----
+# Ontario minimum wage as of October 2024
 Min_Wage <- 17.2
+# EI deduction rate for 2024
+EI_Rate <- 0.0166
+# Annual deduction cap for EI in 2024
+EI_Cap_Y <- 1049.12
+# CPP is deducted at a rate of 5.95% in 2024. This is composed of base and enhanced contributions.
+CPP_Base_Rate <- 0.0495
+CPP_Enhanced_Rate <- 0.01
+# Employees don't start paying CPP until their annualized income exceeds $3,500 in 2024.
+CPP_Threshold_Y <- 3500
+# Annual CPP deductions have a maximum cap based on YMPE - earnings threshold * deduction rate. 2024 YMPE is $68,500.
+CPP_Base_Income_Deduction_Cap_Y <- (68500 - CPP_Threshold_Y) * CPP_Base_Rate
+CPP_Enhanced_Income_Deduction_Cap_Y <- (68500 - CPP_Threshold_Y) * CPP_Enhanced_Rate
+
+# UI constants ----
 Primary_Color <- "#2039FF"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
-# Income Functions
-Income_Calc <- function(Wage
-                        , Hours) {
-  Wage * Hours
+
+# Income Functions ----
+# Calculating gross monthly income from hourly wage and hours per week.
+Wage_to_Gross_Inc <- function(Wage, Hours_W) {
+  (Wage * Hours_W) * 52 / 12
+}
+EI_Deduction <- function(Gross_Income_M) {
+  (Gross_Income_M * EI_Rate) %>%
+    pmin(EI_Cap_Y / 12)
 }
 # UI functions
 Help_Icon <- function(AODA_Title) {
@@ -151,7 +175,7 @@ ui <- fluidPage(
                ),
                fluidRow(
                  column(6,
-                        autonumericInput("Income_PM",
+                        autonumericInput("Take_Home_Pay_1_PM",
                                          label = tooltip(
                                            trigger = list(
                                              "What is your typical monthly take-home pay from work?",
@@ -160,7 +184,7 @@ ui <- fluidPage(
                                                      , title = "Info about take-home pay"
                                                      )
                                            ),
-                                           "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP."
+                                           "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. If you are currently unemployed, put $0."
                                            , placement = "top"
                                          ),
                                          value = 0,
@@ -171,13 +195,13 @@ ui <- fluidPage(
                  column(6,
                         conditionalPanel(
                           condition = "input.Spouse == 'Yes'",
-                          autonumericInput("Income_SM",
+                          autonumericInput("Take_Home_Pay_1_SM",
                                            label = tooltip(
                                              trigger = list(
                                                "What is your spouse's typical monthly take-home pay from work?",
                                                Help_Icon("Info about spousal income")
                                                ),
-                                             "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP."
+                                             "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. If your spouse is currently unemployed, put $0."
                                                ),
                                            value = 0,
                                            min = 0,
@@ -251,29 +275,25 @@ ui <- fluidPage(
                       )
                  )
              ),
+    # Income results tab -----
     tabPanel("Income Results",
              fluidRow(
-               column(9
-                      , withSpinner(plotOutput("Income_Plot"
-                                               )
-                                    )
+               column(
+                 9,
+                 # withSpinner(plotOutput("Income_Plot"
+                 #                               )
+                 #                    )
+                 tableOutput("Income_Table"),
+                 textOutput("Gross_Output_1_PM"),
+                 textOutput("Gross_Output_2_PM"),
+                 textOutput("Gross_Output_3_PM"),
+                 textOutput("Gross_Output_1_SM"),
+                 textOutput("Gross_output_2_SM"),
+                 textOutput("Gross_output_3_SM")
                       )
                       )
              ),
-    tabPanel("More Information",
-             autonumericInput("Income_PM2",
-                                             "What is your typical monthly take-home pay from work?",
-                                             value = 0,
-                                             min = 0,
-                                             currencySymbol = "$"
-                                             # width = "100%"
-               ) %>%
-                 shinyInput_label_embed(
-                   icon("circle-question", class = "fa-solid") %>%
-                     bs_embed_tooltip(title = "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP.",
-                                      placement = "right"
-                     )
-                 ))
+    tabPanel("More Information")
                )
   )
 server <- function(input, output, session) {
@@ -361,13 +381,13 @@ server <- function(input, output, session) {
     Spousal_Descript <- if(input$Spouse == "Yes"){
       paste0(
         "<li>and ",
-        dollar(input$Income_SM),
+        dollar(input$Take_Home_Pay_1_SM),
         " as your spouse's current monthly take-home pay from work"
         )}
       else ""
     paste0(
       "On the previous page you put <ul><br><li>",
-      dollar(input$Income_PM),
+      dollar(input$Take_Home_Pay_1_PM),
       " as your current monthly take-home pay from work",
       Spousal_Descript,
       ".", 
@@ -389,7 +409,8 @@ server <- function(input, output, session) {
       ""
     }
   })
-  # Scenario 2 parameter items.
+  # Scenario 2 inputs.
+  # Inputs for hourly wage option.
   output$Scen_2_Parameters <- renderUI( {
     if(input$Format_2 == "Hourly Wage") {
       layout_column_wrap(
@@ -399,14 +420,14 @@ server <- function(input, output, session) {
         h5("What if I worked...?"),
         conditionalPanel(
           condition = "input.Spouse == 'Yes'",
-          h5("What if my spouse worked...?"),
+          h5("What if my spouse worked...?")
         ),
         autonumericInput("Hours_2_PW"
                          , HTML(paste0(
                            "My weekly work ",
                            Spouse_Break(),
                            "hours"
-                         )),
+                         ))
                          , value = 17
                          , min = 0
                          , max = 60
@@ -442,6 +463,7 @@ server <- function(input, output, session) {
           )
         )
       )
+      # Input for monthly take-home pay option.
     } else {
       layout_column_wrap(
         width = 1/Spouse_Denom(),
@@ -450,16 +472,16 @@ server <- function(input, output, session) {
         h5("What if I worked...?"),
         conditionalPanel(
           condition = "input.Spouse == 'Yes'",
-          h5("What if my spouse worked...?"),
+          h5("What if my spouse worked...?")
         ),
         autonumericInput(
-          "Income_2_PM",
+          "Take_Home_Pay_2_PM",
           label = tooltip(
             trigger = list(
               "My monthly take-home pay from work",
               Help_Icon("Info about take-home pay")
               ),
-            "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP."
+            "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. To show yourself as unemployed in this scenario, put $0."
             ),
           value = 1170,
           min = 0,
@@ -468,13 +490,13 @@ server <- function(input, output, session) {
         conditionalPanel(
           condition = "input.Spouse == 'Yes'",
           autonumericInput(
-            "Income_2_SM",
+            "Take_Home_Pay_2_SM",
             label = tooltip(
               trigger = list(
                 "Spouse's monthly take-home pay from work",
                 Help_Icon("Info about spousal income")
                 ),
-              "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP."
+              "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. To show your spouse as unemployed in this scenario, put $0."
               ),
             value = 1170,
             min = 0,
@@ -484,7 +506,7 @@ server <- function(input, output, session) {
       )
     }
   })
-  # Scenario 3 parameters
+  # Scenario 3 inputs.
   output$Scen_3_Parameters <- renderUI( {
     if(input$Format_3 == "Hourly Wage") {
       layout_column_wrap(
@@ -494,14 +516,14 @@ server <- function(input, output, session) {
         h5("What if I worked...?"),
         conditionalPanel(
           condition = "input.Spouse == 'Yes'",
-          h5("What if my spouse worked...?"),
+          h5("What if my spouse worked...?")
         ),
-        autonumericInput("Hours_3_P"
+        autonumericInput("Hours_3_PW"
                          , HTML(paste0(
                            "My weekly work ",
                            Spouse_Break(),
                            "hours"
-                         )),
+                         ))
                          , value = 35
                          , min = 0
                          , max = 60
@@ -510,7 +532,7 @@ server <- function(input, output, session) {
         conditionalPanel(
           condition = "input.Spouse == 'Yes'",
           autonumericInput(
-            "Hours_3_S",
+            "Hours_3_SW",
             "Spouse's weekly work hours",
             value = 35,
             min = 0,
@@ -545,16 +567,16 @@ server <- function(input, output, session) {
         h5("What if I worked...?"),
         conditionalPanel(
           condition = "input.Spouse == 'Yes'",
-          h5("What if my spouse worked...?"),
+          h5("What if my spouse worked...?")
         ),
         autonumericInput(
-          "Income_3_PM",
+          "Take_Home_Pay_3_PM",
           label = tooltip(
             trigger = list(
               "My monthly take-home pay from work",
               Help_Icon("Info about take-home pay")
               ),
-            "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP."
+            "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. To show yourself as unemployed in this scenario, put $0."
             ),
           value = 2400,
           min = 0,
@@ -563,13 +585,13 @@ server <- function(input, output, session) {
         conditionalPanel(
           condition = "input.Spouse == 'Yes'",
           autonumericInput(
-            "Income_3_SM",
+            "Take_Home_Pay_3_SM",
             label = tooltip(
               trigger = list(
                 "Spouse's monthly take-home pay from work",
                 Help_Icon("Info about spousal income")
                 ),
-              "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP."
+              "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. To show your spouse as unemployed in this scenario, put $0."
               ),
             value = 2400,
             min = 0,
@@ -580,36 +602,141 @@ server <- function(input, output, session) {
     }
   })
   # Income results tab server ---------------
-  Calcd_Income_1 <- reactive({
-    sum(
-      input$Income_PM,
-      input$Income_SM,
-      na.rm = TRUE
-    )
+  # Gross income formulas
+  Gross_Income_2_PM <- reactive( {
+    if (input$Format_2 == "Hourly Wage") {
+      Wage_to_Gross_Inc(
+        input$Wage_2_P,
+        input$Hours_2_PW
+      )
+      } else {
+        # Need to develop the formula to convert take-home pay into gross income.
+        NA
+      }
+  })
+  Gross_Income_2_SM <- eventReactive(list(input$Format_2, input$Spouse), {
+    if (input$Format_2 == "Hourly Wage" & input$Spouse == "Yes") {
+      Wage_to_Gross_Inc(
+        input$Wage_2_S,
+        input$Hours_2_SW
+      )
+      } else {
+        # Need to develop the formula to convert take-home pay into gross income.
+        NA
+      }
+  })
+  Gross_Income_3_PM <- reactive( {
+    if (input$Format_3 == "Hourly Wage") {
+      Wage_to_Gross_Inc(
+        input$Wage_3_P,
+        input$Hours_3_PW
+      )
+      } else {
+        # Need to develop the formula to convert take-home pay into gross income.
+        NA
+      }
+  })
+  Gross_Income_3_SM <- eventReactive(list(input$Format_3, input$Spouse), {
+    if (input$Format_3 == "Hourly Wage" & input$Spouse == "Yes") {
+      Wage_to_Gross_Inc(
+        input$Wage_3_S,
+        input$Hours_3_SW
+      )
+      } else {
+        # Need to develop the formula to convert take-home pay into gross income.
+        NA
+      }
+  })
+  # Computing take home pay.
+  # Take_Home_Pay_1_BM <- reactive( {
+  #   sum(
+  #     input$Take_Home_Pay_1_PM,
+  #     input$Take_Home_Pay_1_SM,
+  #     na.rm = TRUE
+  #   )
+  # })
+  Take_Home_Pay_2_PM <- eventReactive(input$Format_2, {
+    if (input$Format_2 == "Monthly take-home pay") {
+      input$Take_Home_Pay_2_PM
+    } else {
+      # Again, need to develop the formula to convert gross income into take-home pay.
+      NA
+    }
+  })
+  Take_Home_Pay_2_SM <- eventReactive(list(input$Format_2, input$Spouse), {
+    if (input$Format_2 == "Monthly take-home pay" & input$Spouse == "Yes") {
+      input$Take_Home_Pay_2_SM
+    } else {
+      # Again, need to develop the formula to convert gross income into take-home pay.
+      NA
+    }
+  })
+  Take_Home_Pay_3_PM <- eventReactive(input$Format_3, {
+    if (input$Format_3 == "Monthly take-home pay") {
+      input$Take_Home_Pay_3_PM
+    } else {
+      # Again, need to develop the formula to convert gross income into take-home pay.
+      NA
+    }
+  })
+  Take_Home_Pay_3_SM <- eventReactive(list(input$Format_3, input$Spouse), {
+    if (input$Format_3 == "Monthly take-home pay" & input$Spouse == "Yes") {
+      input$Take_Home_Pay_3_SM
+    } else {
+      # Again, need to develop the formula to convert gross income into take-home pay.
+      NA
+    }
+  })
+      
+  Income_Tibble <- reactive( {
+    tibble(
+      Scenario = as.factor(c(1:3)),
+      Wage_P = c(
+        NA,
+        case_when(
+          input$Format_2 == "Hourly Wage" ~ input$Wage_2_P
+          ),
+        case_when(
+          input$Format_3 == "Hourly Wage" ~ input$Wage_3_P
+          )
+        ),
+      Wage_S = c(
+        NA,
+        case_when(
+          input$Format_2 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Wage_2_S
+        ),
+        case_when(
+          input$Format_3 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Wage_3_S
+        )
+      ),
+      Hours_PW = c(
+        NA,
+        case_when(
+          input$Format_2 == "Hourly Wage" ~ input$Hours_2_PW
+          ),
+        case_when(
+          input$Format_3 == "Hourly Wage" ~ input$Hours_3_PW
+          )
+        ),
+      Hours_SW = c(
+        NA,
+        case_when(
+          input$Format_2 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Hours_2_SW
+          ),
+        case_when(
+          input$Format_3 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Hours_3_SW
+          )
+        )
+      )
     })
-  Calcd_Income_2 <- reactive({
-      Income_Calc(input$Wage_2_P
-                  , input$Hours_2_PW
-                  )
-                                                      }
-                                    )
-  Calcd_Income_3 <- reactive({
-      Income_Calc(input$Wage_3
-                  , input$Hours_3
-                   )
-    })
-  Income_Tibble <- reactive(tibble(Calcd_Income = c(Calcd_Income_1()
-                                                          , Calcd_Income_2()
-                                                          , Calcd_Income_3()
-                                                          )
-                                     , Scenario = as.factor(c(1:3))
-                                     )
-                              )
-   output$Income_Plot <- renderPlot({
-      ggplot(Income_Tibble(), aes(x = Scenario, y = Calcd_Income, fill = Scenario)) +
-        geom_col() +
-        scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
-    }, res = 96
-    )
+  
+  output$Income_Table <- renderTable(Income_Tibble())
+   # output$Income_Plot <- renderPlot({
+   #    ggplot(Income_Tibble(), aes(x = Scenario, y = Calcd_Income, fill = Scenario)) +
+   #      geom_col() +
+   #      scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
+   #  }, res = 96
+   #  )
+
 }
 shinyApp(ui, server)
