@@ -33,6 +33,129 @@ CPP_Threshold_Y <- 3500
 CPP_Base_Income_Deduction_Cap_Y <- (68500 - CPP_Threshold_Y) * CPP_Base_Rate
 CPP_Enhanced_Income_Deduction_Cap_Y <- (68500 - CPP_Threshold_Y) * CPP_Enhanced_Rate
 
+# Tax constants ----
+# Progressive federal income tax rates for 2024
+Fed_Tax_Rates <- c(0.15, 0.205, 0.26, 0.29, 0.33)
+# Progressive federal tax brackets for 2024
+Fed_Tax_Brackets <- c(0, 55867, 111733, 173205, 246752)
+# Progressive Ontario income tax rates for 2024
+ON_Tax_Rates <- c(0.0505, 0.0915, 0.1116, 0.1216, 0.1316)
+# Progressive Ontario income tax brackets for 2024
+ON_Tax_Brackets <- c(0, 51446, 102894, 150000, 220000)
+# Ontario surtax rates from ON428 for 2024
+ON_Surtax_Rates <- c(0.2, 0.36)
+# Ontario surtax brackets from ON428 for 2024
+ON_Surtax_Brackets <- c(0, 5554, 7108)
+# The basic personal amount non-refundable tax credit for federal and Ontario in 2024.
+# Given the social assistance population, it seems reasonable to assume net incomes will be below $173,205, and therefore give everyone the basic personal amount supplement.
+Fed_Basic_NRTC <- 15705
+ON_Basic_NRTC <- 12399
+# These parameters come from the Federal Worksheet and are updated for 2024.
+Fed_Age_Amount_NRTC_Max <- 8790
+Fed_Age_Amount_Income_Threshold <- 44325
+Fed_Disabled_Child_NRTC_Supplement <- 5758
+Disabled_Child_NRTC_Max <- 15630
+Fed_Disabled_Childcare_Threshold <- 3373
+# These parameters come from Schedule 5 and have been updated to 2024.
+Canada_Caregiver_Amount <- 2616
+Canada_Caregiver_Max <- 8375
+Canada_Caregiver_Base <- 28041
+# These parameters come from Step 5B of the T1 form and have been updated to 2024.
+EI_NRTC_Max <- 1061
+Canada_Employment_NRTC_Max <- 1433
+Fed_Disability_NRTC_Self <- 9872
+# These parameters come from ON428 and are updated to 2024.
+ON_Dep_Base_Amount <- 11582
+ON_Dep_NRTC_Max <- 10528
+ON_Disability_NRTC_Self <- 10017
+ON_Basic_Tax_Reduction <- 286
+ON_Dep_Tax_Reduction <- 529
+ON_Health_Premium_Bracket_1_bottom <- 20000
+ON_Health_Premium_Bracket_1_top <- 25000
+ON_Health_Premium_Bracket_2_bottom <- 36000
+ON_Health_Premium_Bracket_2_top <- 38500
+ON_Health_Premium_Bracket_3_bottom <- 48000
+ON_Health_Premium_Bracket_3_top <- 48600
+ON_Health_Premium_Bracket_4_bottom <- 72000
+ON_Health_Premium_Bracket_4_top <- 72600
+ON_Health_Premium_Bracket_5_bottom <- 200000
+ON_Health_Premium_Bracket_5_top <- 200600
+ON_Health_Premium_Rate_1 <- .06
+ON_Health_Premium_Rate_2 <- .25
+# These parameters come from the Ontario Worksheet updated to 2024.
+ON_Age_Amount_NRTC_Max <- 6054
+ON_Age_Amount_Income_Threshold <- 45068
+ON_Caregiver_Base_Amount <- 25840
+ON_Disabled_Child_NRTC_Supplement <- 5843
+ON_Disabled_Childcare_Threshold <- 3422
+# These parameters come from Schedule ON428-A updated to 2024.
+LIFT_Credit_Max <- 875
+LIFT_Applicable_Rate <- .05
+LIFT_Income_Threshold <- 32500
+# These parameters come from Schedule 6 for the Canada Workers Benefit updated to 2024.
+CWB_Basic_Start_Point <- 3000
+CWB_Disability_Supplement_Start_Point <- 1150
+CWB_Max_Basic_Single <- 1589
+CWB_Max_Basic_Spouse_Or_Dep <- 2739
+CWB_Max_Disability_Supplement <- 821
+CWB_Rate <- .27
+CWB_Reduction_Rate <- .15
+CWB_Max_Secondary_Earner_Exemption <- 15955
+CWB_Basic_Reduction_Point_Single <- 26149
+CWB_Basic_Reduciton_Point_Spouse_Or_Dep <- 29833
+CWB_Disability_Supplement_Reduction_Point_Single <- 36748
+CWB_Disability_Supplement_Reduction_Point_Spouse_Or_Dep <- 48091
+# These parameters come from the 2024 OEPTC Calculation sheets.
+OEPTC_Occupancy_Cost_Rate <- .2
+OEPTC_Energy_Max <- 277
+OEPTC_Property_Tax_Rate <- .1
+OEPTC_Property_Tax_Max_Juniors <- 971
+OEPTC_Property_Tax_Max_Seniors <- 1144
+OEPTC_Property_Tax_Supplement_Juniors <- 69
+OEPTC_Property_Tax_Supplement_Seniors <- 589
+OEPTC_Reduction_Threshold_Family <- 34661
+OEPTC_Reduction_Threshold_Single <- 27729
+OEPTC_Reduction_Rate <- .02
+# These parameters come from the CRA's webpage on the Trillium Benefit updated for July 2024.
+OSTC_Credit <- 360
+OSTC_Reduction_Threshold_Family <- 34661
+OSTC_Reduction_Threshold_Single <- 27729
+OSTC_Reduction_Rate <- .04
+# These parameters come from the CRA page on the Canada Child Benefit, updated for 2024. 
+CCB_Credit_Under_6 <- 7787
+CCB_Credit_6_to_17 <- 6570
+CCB_Credit_Disabled <- 3322
+CCB_Lower_Reduction_Threshold <- 36502
+CCB_Upper_Reduction_Threshold <- 79087
+CCB_Lower_Reduction_Rate_1_Kid <- .07
+CCB_Upper_Reduction_Rate_1_Kid <- .032
+CCB_Lower_Reduction_Rate_2_Kids <- .135
+CCB_Upper_Reduction_Rate_2_Kids <- .057
+CCB_Lower_Reduction_Rate_3_Kids <- .19
+CCB_Upper_Reduction_Rate_3_Kids <- .08
+CCB_Lower_Reduction_Rate_4_Kids <- .23
+CCB_Upper_Reduction_Rate_4_Kids <- .095
+CDB_Reduction_Rate_1_Kid <- .032
+CDB_Reduction_Rate_2_Kids <- .057
+# These parameters come from the CCB and related provincial and territorial programs booklet (t4144), updated for July 2024.
+OCB_Credit <- 1680
+OCB_Reduction_Threshold <- 25646
+# The OCB Reduction rate is not published, so it was determined algebraically from output from the CRA's Child and Family Benefits Calculator
+OCB_Reduction_Rate <- .08
+# These parameters are taken from HST Credit Calculation Sheets, updated for July 2024.
+HST_Credit_Adult <- 340
+Additional_HST_Credit_Threshold <- 11039
+Additional_HST_Credit <- 179
+Additional_HST_Credit_Rate <- 0.02
+HST_Credit_Reduction_Threshold <- 44324
+HST_Credit_Reduction_Rate <- 0.05
+# These parameters are taken from the CRA's policy directive on the Climate Action Incentive Payments 2023.
+CAIP_Individual <- 488
+CAIP_Spouse <- 244
+CAIP_Children <- 122
+CAIP_First_Child_Single_Parent <- 244
+CAIP_Rural_Supplement <- .1
+
 # UI constants ----
 Primary_Color <- "#2039FF"
 Scenario_1_Color <- "#FB89B0"
@@ -41,12 +164,71 @@ Scenario_3_Color <- "#B0FB89"
 
 # Income Functions ----
 # Calculating gross monthly income from hourly wage and hours per week.
-Wage_to_Gross_Inc <- function(Wage, Hours_W) {
+Wage_To_Gross_Formula <- function(Wage, Hours_W) {
   (Wage * Hours_W) * 52 / 12
 }
-EI_Deduction <- function(Gross_Income_M) {
-  (Gross_Income_M * EI_Rate) %>%
-    pmin(EI_Cap_Y / 12)
+# Annual EI deductions.
+EI_Deduct_Formula <- function(Gross_Income_Y) {
+  (Gross_Income_Y * EI_Rate) %>%
+    # EI deductions cannot exceed an annual cap.
+    pmin(EI_Cap_Y)
+}
+# These formulas calculate benefit unit exemplars' annual base and enhanced CPP deductions.
+# The CCP formulas are taken from Schedule 8.
+CPP_Base_Deduct_Formula <- function(Gross_Income_Y) {
+  ((Gross_Income_Y - CPP_Threshold_Y) * CPP_Base_Rate) %>% 
+    # Preventing negative values.
+    pmax(0) %>%
+    # CPP deductions have a cap.
+    pmin(CPP_Base_Income_Deduction_Cap_Y)
+}
+CPP_Enhanced_Deduct_Formula <- function(Gross_Income_Y) {
+  ((Gross_Income_Y - CPP_Max_Exemption_Y) * CPP_Enhanced_Rate) %>%
+    pmax(0) %>%
+    pmin(CPP_Enhanced_Income_Deduction_Cap_Y)
+}
+# Function to calculate taxable income. 
+# If the employee does not fill out all fields in TD1 or TD1ON, then the only reduction to taxable income is CPP Enhanced contributions.
+Taxable_Income_Formula <- function(Gross_Income_Y) {
+  Gross_Income_Y - CPP_Enhanced_Deduct_Formula(Gross_Income_Y)
+}
+# Function to calculate federal income tax
+Fed_Tax_Formula <- function(Taxable_Income_Y) {
+  Tax <- 0
+  for (i in seq_along(Fed_Tax_Rates)) {
+    if (Taxable_Income_Y > Fed_Tax_Brackets[i]) {
+      Marginal_Income <- min(Taxable_Income_Y, Fed_Tax_Brackets[i + 1]) - Fed_Tax_Brackets[i]
+      Tax <- Tax + Marginal_Income * Fed_Tax_Rates[i]
+    }
+  }
+  return(Tax)
+}
+# Function to calculate gross income from net income
+Take_Home_To_Gross_Formula <- function(Take_Home_Pay_Y) {
+  # Iterative approach to estimate gross income
+  Gross_Income_Y <- Take_Home_Pay_Y
+  Results <- data.frame(Iteration = integer(), GrossIncome = numeric())
+  Iteration <- 0
+  Difference <- Inf
+  # Iterate until difference between iterations in gross income calculations is less than 10 cents.
+  while (difference >= 0.1) {
+    Iteration <- Iteration + 1
+    Previous_Gross_Income <- Gross_Income_Y
+    EI_Deduction_Y <- EI_Deduct_Formula(Gross_Income_Y)
+    CPP_Base_Deduct_Y <- CPP_Base_Deduct_Formula(Gross_Income_Y)
+    CPP_Enhanced_Deduct_Y <- CPP_Enhanced_Deduct_Formula(Gross_Income_Y)
+    Taxable_Income_Y <- Taxable_Income_Formula(Gross_Income_Y)
+    Fed_Tax_Y <- Fed_Tax_Formula(Taxable_Income_Y)
+    Deductions <- EI_Deduction_Y + CPP_Base_Deduct_Y + CPP_Enhanced_Deduct_Y + Fed_Tax_Y
+    Gross_Income_Y <- Take_Home_Pay_Y + Deductions
+    difference <- abs(Gross_Income_Y - Previous_Gross_Income_Y)
+    results <- rbind(results, data.frame(Iteration = iteration, GrossIncome = gross_income))
+  }
+  
+  # Print the results in a table format
+  kable(results, format = "markdown", col.names = c("Iteration", "Gross Income"))
+  
+  return(Gross_Income_Y)
 }
 # UI functions
 Help_Icon <- function(AODA_Title) {
@@ -689,7 +871,7 @@ server <- function(input, output, session) {
   })
       
   Income_Tibble <- reactive( {
-    tibble(
+    Input_Tibble <- tibble(
       Scenario = as.factor(c(1:3)),
       Wage_P = c(
         NA,
@@ -728,6 +910,16 @@ server <- function(input, output, session) {
           )
         )
       )
+    Input_Tibble %>%
+      mutate(
+        Gross_Income_PM = case_when(
+          !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
+          ~ Wage_To_Gross_Formula(
+            .data$Wage_P,
+            .data$Hours_PW
+            )
+          )
+        )
     })
   
   output$Income_Table <- renderTable(Income_Tibble())
