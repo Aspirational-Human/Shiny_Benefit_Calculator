@@ -20,6 +20,8 @@ library(shinythemes)
 # Income constants ----
 # Ontario minimum wage as of October 2024
 Min_Wage <- 17.2
+Part_Time_Hours <- 17
+Full_Time_Hours <- 40
 # EI deduction rate for 2024
 EI_Rate <- 0.0166
 # Annual deduction cap for EI in 2024
@@ -164,19 +166,8 @@ Scenario_3_Color <- "#B0FB89"
 
 # Default scenarios -----
 # This is a tibble containing all of the default settings that gets updated when users change inputs in the UI
-Part_Time_Hours <- 17
-Full_Time_Hours <- 40
-Default_Scenarios <- tibble(
-  Scenario = as.factor(c(1:3)),
-  Spouse = "No",
-  Dependents = 0,
-  Wage_P = c(NA, Min_Wage, Min_Wage),
-  Wage_S = NA,
-  Hours_PW = c(NA, Part_Time_Hours, Full_Time_Hours),
-  Hours_SW = NA,
-  Take_Home_Pay_PM = NA,
-  Take_Home_Pay_SM = NA
-  )
+
+
 
 # Income Functions ----
 # Calculating gross monthly income from hourly wage and hours per week.
@@ -490,7 +481,14 @@ ui <- fluidPage(
                       )
                       )
              ),
-    tabPanel("More Information")
+    # More information tab ----
+    tabPanel("More Information",
+             fluidRow(
+               column(
+                 9,
+                 verbatimTextOutput("Test")
+               )
+             ))
                )
   )
 server <- function(input, output, session) {
@@ -502,34 +500,6 @@ server <- function(input, output, session) {
       hideFeedback("Spouse")
     }
   })
-  # Error messages don't seem to be compatible with cards in which these inputs are contained.
-  # observeEvent(input$Wage_1, {
-  #   shinyFeedback::feedbackWarning("Wage_1",
-  #                                  input$Wage_1 < Min_Wage,
-  #                                  paste0("Ontario minimum wage is ",
-  #                                         dollar(Min_Wage),
-  #                                        " per hour."
-  #                                         )
-  #                                  )
-  # })
-  # observeEvent(input$Wage_2, {
-  #   shinyFeedback::feedbackWarning("Wage_2",
-  #                                  input$Wage_2 < Min_Wage,
-  #                                  paste0("Ontario minimum wage is ",
-  #                                         dollar(Min_Wage),
-  #                                         " per hour."
-  #                                  )
-  #   )
-  # })
-  # observeEvent(input$Wage_3, {
-  #   shinyFeedback::feedbackWarning("Wage_3",
-  #                                  input$Wage_3 < Min_Wage,
-  #                                  paste0("Ontario minimum wage is ",
-  #                                         dollar(Min_Wage),
-  #                                         " per hour."
-  #                                  )
-  #   )
-  # })
   # About Me tab server ---------
   Program_Name <- reactive({
     if(input$Program == "Ontario Works") {
@@ -831,6 +801,30 @@ server <- function(input, output, session) {
     )
     # Do not perform the output until all the input is available.
     req(input$Spouse)
+    # if (input$Spouse == "Yes") {
+    #   Default_Scenarios <- Default_Scenarios %>%
+    #     mutate(
+    #       Spouse = case_when(
+    #         .env$input$Spouse == "Yes"
+    #         ~ "Yes",
+    #         .env$input$Spouse == "No"
+    #         ~ "No"
+    #       ),
+    #       Wage_S = c(NA, .env$Min_Wage, .env$Min_Wage),
+    #       Hours_SW = c(NA, .env$Part_Time_Hours, .env$Full_Time_Hours)
+    #     )
+    # } else {Default_Scenarios <- Default_Scenarios}
+    Default_Scenarios <- tibble(
+      Scenario = as.factor(c(1:3)),
+      # Spouse = "No",
+      # Dependents = 0,
+      # Wage_P = c(NA, Min_Wage, Min_Wage),
+      # Wage_S = NA,
+      # Hours_PW = c(NA, Part_Time_Hours, Full_Time_Hours),
+      # Hours_SW = NA,
+      # Take_Home_Pay_PM = NA,
+      # Take_Home_Pay_SM = NA
+    )
     Default_Scenarios %>%
       mutate(
         Spouse = case_when(
@@ -839,9 +833,55 @@ server <- function(input, output, session) {
           .env$input$Spouse == "No"
           ~ "No"
         ),
+        Wage_P = c(
+          NA,
+          case_when(
+            .env$input$Format_2 == "Hourly Wage"
+            ~ .env$input$Wage_2_P
+          ),
+          case_when(
+            .env$input$Format_3 == "Hourly Wage"
+            ~ .env$input$Wage_3_P
+          )
+        ),
         Wage_S = case_when(
-          .env$input$Spouse == "Yes" & input$Format_2 == "Hourly Wage"
-          ~ c(NA, .env$input$Wage_2_S, .env$input$Wage_3_S)
+          .env$input$Spouse == "Yes"
+          ~ c(
+            NA,
+            case_when(
+              .env$input$Format_2 == "Hourly Wage"
+              ~ .env$input$Wage_2_S
+              ),
+            case_when(
+              .env$input$Format_3 == "Hourly Wage"
+              ~ .env$input$Wage_3_S
+              )
+            )
+          ),
+        Hours_PW = c(
+          NA,
+          case_when(
+            .env$input$Format_2 == "Hourly Wage"
+            ~ .env$input$Hours_2_PW
+          ),
+          case_when(
+            .env$input$Format_3 == "Hourly Wage"
+            ~ .env$input$Hours_3_PW
+          )
+        ),
+        Hours_SW = case_when(
+          .env$input$Spouse == "Yes"
+          ~ c(
+            NA,
+            case_when(
+              .env$input$Format_2 == "Hourly Wage"
+              ~ .env$input$Hours_2_SW
+            ),
+            case_when(
+              .env$input$Format_3 == "Hourly Wage"
+              ~ .env$input$Hours_3_SW
+            )
+          )
         ),
         Gross_Income_PM = case_when(
           !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
@@ -851,14 +891,31 @@ server <- function(input, output, session) {
             )
           ),
         Gross_Income_SM = case_when(
-          !is.na(.data$Wage_S) & !is.na(.data$Hours_PW)
+          !is.na(.data$Wage_S) & !is.na(.data$Hours_SW)
           ~ Wage_To_Gross_Formula(
             .data$Wage_S,
             .data$Hours_SW
+            )
+          ),
+        Take_Home_Pay_PM = case_when(
+          is.na(.data$Wage_P) & is.na(.data$Hours_PW)
+          ~ c(
+            .env$input$Take_Home_Pay_1_PM,
+            .env$input$Take_Home_Pay_2_PM,
+            .env$input$Take_Home_Pay_3_PM
+            )
+          ),
+        Take_Home_Pay_SM = case_when(
+          is.na(.data$Wage_S) & is.na(.data$Hours_SW) & .data$Spouse == "Yes"
+          ~ c(
+            .env$input$Take_Home_Pay_1_SM,
+            .env$input$Take_Home_Pay_2_SM,
+            .env$input$Take_Home_Pay_3_SM
+            )
           )
         )
-        )
     })
+
   
   output$Income_Table <- renderTable( {
     Income_Tibble()
