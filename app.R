@@ -162,6 +162,22 @@ Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
 
+# Default scenarios -----
+# This is a tibble containing all of the default settings that gets updated when users change inputs in the UI
+Part_Time_Hours <- 17
+Full_Time_Hours <- 40
+Default_Scenarios <- tibble(
+  Scenario = as.factor(c(1:3)),
+  Spouse = "No",
+  Dependents = 0,
+  Wage_P = c(NA, Min_Wage, Min_Wage),
+  Wage_S = NA,
+  Hours_PW = c(NA, Part_Time_Hours, Full_Time_Hours),
+  Hours_SW = NA,
+  Take_Home_Pay_PM = NA,
+  Take_Home_Pay_SM = NA
+  )
+
 # Income Functions ----
 # Calculating gross monthly income from hourly wage and hours per week.
 Wage_To_Gross_Formula <- function(Wage, Hours_W) {
@@ -230,7 +246,7 @@ Take_Home_To_Gross_Formula <- function(Take_Home_Pay_Y) {
   
   return(Gross_Income_Y)
 }
-# UI functions
+# UI functions ----
 Help_Icon <- function(AODA_Title) {
   bs_icon("question-circle-fill"
           , class = "text-primary fa-pull-right"
@@ -238,6 +254,7 @@ Help_Icon <- function(AODA_Title) {
   )
 }
 
+#UI ----
 custom_theme <- bs_theme(preset = "shiny") %>%
   bs_add_variables(
      "primary" = Primary_Color,
@@ -261,9 +278,7 @@ custom_theme <- bs_theme(preset = "shiny") %>%
 
 ui <- fluidPage(
   # Setting the look and feel of the app.
-  #theme = bslib::bs_theme(bootswatch = "united"),
   theme = custom_theme,
-  # theme = shinytheme("yeti"),
   # Setting up the ability to provide dynamic user feedback.
   shinyFeedback::useShinyFeedback(),
   tags$style(
@@ -331,7 +346,7 @@ ui <- fluidPage(
                  column(5, 
                         tags$div(selectInput("Spouse",
                                       "Do you have a spouse or common law partner?",
-                                      c("No", "Yes")),
+                                      c("", "No", "Yes")),
                                     id = "Spouse_Tip"
                         )
                  )
@@ -481,6 +496,12 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   # thematic::thematic_shiny()
   shiny_session <- getDefaultReactiveDomain()
+  # Hiding missing input feedback once input detected.
+  observeEvent(input$Spouse, {
+    if (input$Spouse != "") {
+      hideFeedback("Spouse")
+    }
+  })
   # Error messages don't seem to be compatible with cards in which these inputs are contained.
   # observeEvent(input$Wage_1, {
   #   shinyFeedback::feedbackWarning("Wage_1",
@@ -629,7 +650,7 @@ server <- function(input, output, session) {
         autonumericInput("Wage_2_P"
                          , "My hourly wage"
                          , value = 17.20
-                         , min = 17.20
+                         , min = 0
                          , max = 100
                          , currencySymbol = "$"
         ),
@@ -639,7 +660,7 @@ server <- function(input, output, session) {
             "Wage_2_S",
             "Spouse's hourly wage",
             value = 17.20,
-            min = 17.20,
+            min = 0,
             max = 100,
             currencySymbol = "$"
           )
@@ -725,7 +746,7 @@ server <- function(input, output, session) {
         autonumericInput("Wage_3_P"
                          , "My hourly wage"
                          , value = 17.20
-                         , min = 17.20
+                         , min = 0
                          , max = 100
                          , currencySymbol = "$"
         ),
@@ -735,7 +756,7 @@ server <- function(input, output, session) {
             "Wage_3_S",
             "Spouse's hourly wage",
             value = 17.20,
-            min = 17.20,
+            min = 0,
             max = 100,
             currencySymbol = "$"
           )
@@ -783,146 +804,65 @@ server <- function(input, output, session) {
       )
     }
   })
+  observeEvent(input$Wage_2_P, {
+    shinyFeedback::feedbackWarning(
+      "Wage_2_P",
+      input$Wage_2_P < 17.2,
+      "Minimum wage in Ontario is $17.20"
+    )
+  })
+  
   # Income results tab server ---------------
-  # Gross income formulas
-  Gross_Income_2_PM <- reactive( {
-    if (input$Format_2 == "Hourly Wage") {
-      Wage_to_Gross_Inc(
-        input$Wage_2_P,
-        input$Hours_2_PW
-      )
-      } else {
-        # Need to develop the formula to convert take-home pay into gross income.
-        NA
-      }
-  })
-  Gross_Income_2_SM <- eventReactive(list(input$Format_2, input$Spouse), {
-    if (input$Format_2 == "Hourly Wage" & input$Spouse == "Yes") {
-      Wage_to_Gross_Inc(
-        input$Wage_2_S,
-        input$Hours_2_SW
-      )
-      } else {
-        # Need to develop the formula to convert take-home pay into gross income.
-        NA
-      }
-  })
-  Gross_Income_3_PM <- reactive( {
-    if (input$Format_3 == "Hourly Wage") {
-      Wage_to_Gross_Inc(
-        input$Wage_3_P,
-        input$Hours_3_PW
-      )
-      } else {
-        # Need to develop the formula to convert take-home pay into gross income.
-        NA
-      }
-  })
-  Gross_Income_3_SM <- eventReactive(list(input$Format_3, input$Spouse), {
-    if (input$Format_3 == "Hourly Wage" & input$Spouse == "Yes") {
-      Wage_to_Gross_Inc(
-        input$Wage_3_S,
-        input$Hours_3_SW
-      )
-      } else {
-        # Need to develop the formula to convert take-home pay into gross income.
-        NA
-      }
-  })
-  # Computing take home pay.
-  # Take_Home_Pay_1_BM <- reactive( {
-  #   sum(
-  #     input$Take_Home_Pay_1_PM,
-  #     input$Take_Home_Pay_1_SM,
-  #     na.rm = TRUE
-  #   )
-  # })
-  Take_Home_Pay_2_PM <- eventReactive(input$Format_2, {
-    if (input$Format_2 == "Monthly take-home pay") {
-      input$Take_Home_Pay_2_PM
-    } else {
-      # Again, need to develop the formula to convert gross income into take-home pay.
-      NA
-    }
-  })
-  Take_Home_Pay_2_SM <- eventReactive(list(input$Format_2, input$Spouse), {
-    if (input$Format_2 == "Monthly take-home pay" & input$Spouse == "Yes") {
-      input$Take_Home_Pay_2_SM
-    } else {
-      # Again, need to develop the formula to convert gross income into take-home pay.
-      NA
-    }
-  })
-  Take_Home_Pay_3_PM <- eventReactive(input$Format_3, {
-    if (input$Format_3 == "Monthly take-home pay") {
-      input$Take_Home_Pay_3_PM
-    } else {
-      # Again, need to develop the formula to convert gross income into take-home pay.
-      NA
-    }
-  })
-  Take_Home_Pay_3_SM <- eventReactive(list(input$Format_3, input$Spouse), {
-    if (input$Format_3 == "Monthly take-home pay" & input$Spouse == "Yes") {
-      input$Take_Home_Pay_3_SM
-    } else {
-      # Again, need to develop the formula to convert gross income into take-home pay.
-      NA
-    }
-  })
-      
   Income_Tibble <- reactive( {
-    Input_Tibble <- tibble(
-      Scenario = as.factor(c(1:3)),
-      Wage_P = c(
-        NA,
-        case_when(
-          input$Format_2 == "Hourly Wage" ~ input$Wage_2_P
-          ),
-        case_when(
-          input$Format_3 == "Hourly Wage" ~ input$Wage_3_P
-          )
-        ),
-      Wage_S = c(
-        NA,
-        case_when(
-          input$Format_2 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Wage_2_S
-        ),
-        case_when(
-          input$Format_3 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Wage_3_S
-        )
-      ),
-      Hours_PW = c(
-        NA,
-        case_when(
-          input$Format_2 == "Hourly Wage" ~ input$Hours_2_PW
-          ),
-        case_when(
-          input$Format_3 == "Hourly Wage" ~ input$Hours_3_PW
-          )
-        ),
-      Hours_SW = c(
-        NA,
-        case_when(
-          input$Format_2 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Hours_2_SW
-          ),
-        case_when(
-          input$Format_3 == "Hourly Wage" & input$Spouse == "Yes" ~ input$Hours_3_SW
-          )
-        )
-      )
-    Input_Tibble %>%
+    # Creating a notice on the results page if there are missing input values
+    if (input$Spouse == "") {
+    Missing <- showNotification(
+      "Income results are not calculated until you have inputed information on the About Me tab",
+      duration = NULL,
+      closeButton = TRUE,
+      type = "warning"
+    )
+    }
+    # Marking the required inputs for user completion.
+    feedbackWarning(
+      "Spouse",
+      input$Spouse == "",
+      "Input requried"
+    )
+    # Do not perform the output until all the input is available.
+    req(input$Spouse)
+    Default_Scenarios %>%
       mutate(
+        Spouse = case_when(
+          .env$input$Spouse == "Yes"
+          ~ "Yes",
+          .env$input$Spouse == "No"
+          ~ "No"
+        ),
+        Wage_S = case_when(
+          .env$input$Spouse == "Yes" & input$Format_2 == "Hourly Wage"
+          ~ c(NA, .env$input$Wage_2_S, .env$input$Wage_3_S)
+        ),
         Gross_Income_PM = case_when(
           !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
           ~ Wage_To_Gross_Formula(
             .data$Wage_P,
             .data$Hours_PW
             )
+          ),
+        Gross_Income_SM = case_when(
+          !is.na(.data$Wage_S) & !is.na(.data$Hours_PW)
+          ~ Wage_To_Gross_Formula(
+            .data$Wage_S,
+            .data$Hours_SW
           )
+        )
         )
     })
   
-  output$Income_Table <- renderTable(Income_Tibble())
+  output$Income_Table <- renderTable( {
+    Income_Tibble()
+    })
    # output$Income_Plot <- renderPlot({
    #    ggplot(Income_Tibble(), aes(x = Scenario, y = Calcd_Income, fill = Scenario)) +
    #      geom_col() +
