@@ -16,12 +16,15 @@ library(thematic)
 library(bsplus)
 library(htmltools)
 library(shinythemes)
+library(shinyvalidate)
 
 # Income constants ----
 # Ontario minimum wage as of October 2024
 Min_Wage <- 17.2
 Part_Time_Hours <- 17
 Full_Time_Hours <- 40
+Part_Time_Take_Home_Pay <- 1170
+Full_Time_Take_Home_Pay <- 2400
 # EI deduction rate for 2024
 EI_Rate <- 0.0166
 # Annual deduction cap for EI in 2024
@@ -252,8 +255,8 @@ custom_theme <- bs_theme(preset = "shiny") %>%
   #   # "$secondary" = "#89B0FB",
   #   # "$success" = "#B0FB89",
   #   # "$info" = "#FB89B0",
-  #   # "$warning" = "#89B0FB",
-     "danger" = Scenario_1_Color,
+     # "warning" = "#c10000",
+     "info" = Scenario_1_Color,
      "light" = Scenario_2_Color,
      "dark" = Scenario_3_Color
   #   #"gray-100" = "#B0FB89"
@@ -308,16 +311,17 @@ ui <- fluidPage(
                  column(6,
                         selectInput("Program",
                                     "Which social assistance program do you want to use for calculations?",
-                                    c("Ontario Works", "Ontario Disability Support Program (ODSP)")
+                                    c("",
+                                      "Ontario Works",
+                                      "Ontario Disability Support Program (ODSP)"
+                                      )
                                     )
                         ),
                  column(2,
-                        autonumericInput(
+                        textInput(
                           "SA_Payment",
-                          label = "What is your typical monthly Ontario Works payment?",
+                          label = "What is your typical monthly social assistance payment?",
                           value = "",
-                          min = 0,
-                          currencySymbol = "$"
                           )
                           ),
                  column(1,
@@ -414,12 +418,63 @@ ui <- fluidPage(
                                       placement = "top",
                                       id = "Dep_Tip"
                                     ),
-                                    value = 0
+                                    value = NULL
                                     , min = 0
                                     , max = 12
                                     )
                         )
+               ),
+             fluidRow(
+               column(
+                 6,
+                 numericInput(
+                   "Age_P",
+                   "How old are you?",
+                   value = NULL,
+                   min = 0,
+                   max = 99
+                 )
+               ),
+               column(
+                 2,
+                 conditionalPanel(
+                   condition = "input.Spouse == 'Yes'",
+                   numericInput(
+                      "Age_S",
+                      "How old is your spouse?",
+                      value = NULL,
+                      min = 0,
+                      max = 99
+                    )
+                   )
+               ),
+               column(
+                 6,
+                 conditionalPanel(
+                   condition = "input.Dependents >= 1",
+                   numericInput(
+                     "Age_D_1",
+                     "How old is your dependent?",
+                     value = NULL,
+                     min = 0,
+                     max = 99
+                   )
+                 )
+               ),
+               column(
+                 2,
+                 conditionalPanel(
+                   condition = "input.Dependents >= 2",
+                   numericInput(
+                     "Age_D_1",
+                     "How old is your second dependent?",
+                     value = NULL,
+                     min = 0,
+                     max = 99
+                   )
+                 )
                )
+             )
     ),
     # Work scenarios tab ----------------
     tabPanel("Work Scenarios",
@@ -438,7 +493,7 @@ ui <- fluidPage(
                  style = css(grid_template_columns = "28% 35% 35%"),
                  # Scenario 1 Card.
                  card(card_title("Scenario 1 - Current Situation"),
-                      class = "bg-danger",
+                      class = "bg-info",
                       htmlOutput("Scen_1_Descript")
                       ),
                  # Scenario 2 Card.
@@ -494,13 +549,9 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   # thematic::thematic_shiny()
   shiny_session <- getDefaultReactiveDomain()
-  # Hiding missing input feedback once input detected.
-  observeEvent(input$Spouse, {
-    if (input$Spouse != "") {
-      hideFeedback("Spouse")
-    }
-  })
+  
   # About Me tab server ---------
+  # Creating a variable that tracks the name of the program to which user belongs.
   Program_Name <- reactive({
     if(input$Program == "Ontario Works") {
       "Ontario Works"
@@ -508,6 +559,50 @@ server <- function(input, output, session) {
       "ODSP"
     }
   })
+  
+  # Hiding missing input feedback once input detected.
+  observeEvent(input$Program, {
+    if (input$Program != "") {
+      hideFeedback("Program")
+      removeNotification("Missing_About_Me")
+    }
+  })
+  observeEvent(input$Spouse, {
+    if (input$Spouse != "") {
+      hideFeedback("Spouse")
+      removeNotification("Missing_About_Me")
+    }
+  })
+  observeEvent(input$SA_Payment, {
+    if (input$SA_Payment != "") {
+      hideFeedback("SA_Payment")
+      removeNotification("Missing_About_Me")
+    }
+  })
+  
+  # Formatting a textInput field as a currency field
+  SA_Pay_Value <- reactiveVal(NULL)
+  observeEvent(input$SA_Payment, {
+    Out_Num <- as.numeric(str_extract(
+      input$SA_Payment,
+      "\\d*\\.?\\d+"
+        )
+      )
+    if (!is.na(Out_Num)) {
+      Formatted_Value <- paste0(
+        "$",
+        format(Out_Num, big.mark = ",", digits = 2, nsmall = 2
+               )
+      )
+      updateTextInput(
+        session = shiny_session,
+        "SA_Payment",
+        value = Formatted_Value
+      )
+      SA_Pay_Value(Out_Num) # making a numeric output available for calculations
+      }
+  })
+  
   observeEvent(list(input$Spouse, input$Program), {
     Spouse_Instruct <- if(input$Spouse == "Yes") {
       "or your spouse"
@@ -548,6 +643,7 @@ server <- function(input, output, session) {
       label = label
                            )
   })
+  
   # Work scenarios tab server ---------------
   # Dynamic description of current situation displayed in Scenario 1 card.
   output$Scen_1_Descript <- renderText({
@@ -656,7 +752,7 @@ server <- function(input, output, session) {
               ),
             "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. To show yourself as unemployed in this scenario, put $0."
             ),
-          value = 1170,
+          value = Part_Time_Take_Home_Pay,
           min = 0,
           currencySymbol = "$"
         ),
@@ -671,7 +767,7 @@ server <- function(input, output, session) {
                 ),
               "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. To show your spouse as unemployed in this scenario, put $0."
               ),
-            value = 1170,
+            value = Part_Time_Take_Home_Pay,
             min = 0,
             currencySymbol = "$"
           )
@@ -751,7 +847,7 @@ server <- function(input, output, session) {
               ),
             "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. To show yourself as unemployed in this scenario, put $0."
             ),
-          value = 2400,
+          value = Full_Time_Take_Home_Pay,
           min = 0,
           currencySymbol = "$"
           ),
@@ -766,7 +862,7 @@ server <- function(input, output, session) {
                 ),
               "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. To show your spouse as unemployed in this scenario, put $0."
               ),
-            value = 2400,
+            value = Full_Time_Take_Home_Pay,
             min = 0,
             currencySymbol = "$"
           )
@@ -774,46 +870,64 @@ server <- function(input, output, session) {
       )
     }
   })
-  observeEvent(input$Wage_2_P, {
-    shinyFeedback::feedbackWarning(
-      "Wage_2_P",
-      input$Wage_2_P < 17.2,
-      "Minimum wage in Ontario is $17.20"
-    )
-  })
+
   
   # Income results tab server ---------------
+  
+  # Setting up a default values so that unrendered inputs don't throw errors
+  Take_Home_Pay_2_PM_Default <- reactiveVal(Part_Time_Take_Home_Pay)
+  # Making it possible to update the default value when rendered
+  observeEvent(input$Take_Home_Pay_2_PM, {
+    Take_Home_Pay_2_PM_Default(input$Take_Home_Pay_2_PM)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+  Take_Home_Pay_3_PM_Default <- reactiveVal(Full_Time_Take_Home_Pay)
+  observeEvent(input$Take_Home_Pay_3_PM, {
+    Take_Home_Pay_3_PM_Default(input$Take_Home_Pay_3_PM)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+  Take_Home_Pay_2_SM_Default <- reactiveVal(Part_Time_Take_Home_Pay)
+  observeEvent(input$Take_Home_Pay_2_SM, {
+    Take_Home_Pay_2_SM_Default(input$Take_Home_Pay_2_SM)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+  Take_Home_Pay_3_SM_Default <- reactiveVal(Full_Time_Take_Home_Pay)
+  observeEvent(input$Take_Home_Pay_3_SM, {
+    Take_Home_Pay_3_SM_Default(input$Take_Home_Pay_3_SM)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+  
   Income_Tibble <- reactive( {
     # Creating a notice on the results page if there are missing input values
-    if (input$Spouse == "") {
+    if (input$Spouse == "" || input$Program == "" || is.null(input$SA_Payment)) {
     Missing <- showNotification(
-      "Income results are not calculated until you have inputed information on the About Me tab",
+      HTML("Income results are not calculated until you have inputed all required information on the <strong>About Me</strong> tab"),
       duration = NULL,
       closeButton = TRUE,
-      type = "warning"
+      type = "error",
+      id = "Missing_About_Me"
     )
     }
     # Marking the required inputs for user completion.
-    feedbackWarning(
+    feedbackDanger(
       "Spouse",
       input$Spouse == "",
       "Input requried"
     )
+    feedbackDanger(
+      "Program",
+      input$Program == "",
+      "Input required"
+    )
+    feedbackDanger(
+      "SA_Payment",
+      is.null(input$SA_Payment) | input$SA_Payment == "",
+      "Input required"
+    )
     # Do not perform the output until all the input is available.
-    req(input$Spouse)
-    # if (input$Spouse == "Yes") {
-    #   Default_Scenarios <- Default_Scenarios %>%
-    #     mutate(
-    #       Spouse = case_when(
-    #         .env$input$Spouse == "Yes"
-    #         ~ "Yes",
-    #         .env$input$Spouse == "No"
-    #         ~ "No"
-    #       ),
-    #       Wage_S = c(NA, .env$Min_Wage, .env$Min_Wage),
-    #       Hours_SW = c(NA, .env$Part_Time_Hours, .env$Full_Time_Hours)
-    #     )
-    # } else {Default_Scenarios <- Default_Scenarios}
+    req(input$Spouse, input$Program, 
+        # input$SA_Payment
+        )
     Default_Scenarios <- tibble(
       Scenario = as.factor(c(1:3)),
       # Spouse = "No",
@@ -827,6 +941,17 @@ server <- function(input, output, session) {
     )
     Default_Scenarios %>%
       mutate(
+        Program = case_when(
+          .env$input$Program == "Ontario Works"
+          ~ "OW",
+          .env$input$Program == "Ontario Disability Support Program (ODSP)"
+          ~ "ODSP"
+        ),
+        SA_Pay = c(
+          .env$SA_Pay_Value(),
+          NA,
+          NA
+          ),
         Spouse = case_when(
           .env$input$Spouse == "Yes"
           ~ "Yes",
@@ -901,16 +1026,16 @@ server <- function(input, output, session) {
           is.na(.data$Wage_P) & is.na(.data$Hours_PW)
           ~ c(
             .env$input$Take_Home_Pay_1_PM,
-            .env$input$Take_Home_Pay_2_PM,
-            .env$input$Take_Home_Pay_3_PM
+            .env$Take_Home_Pay_2_PM_Default(),
+            .env$Take_Home_Pay_3_PM_Default()
             )
           ),
         Take_Home_Pay_SM = case_when(
           is.na(.data$Wage_S) & is.na(.data$Hours_SW) & .data$Spouse == "Yes"
           ~ c(
             .env$input$Take_Home_Pay_1_SM,
-            .env$input$Take_Home_Pay_2_SM,
-            .env$input$Take_Home_Pay_3_SM
+            .env$Take_Home_Pay_2_SM_Default(),
+            .env$Take_Home_Pay_3_SM_Default()
             )
           )
         )
