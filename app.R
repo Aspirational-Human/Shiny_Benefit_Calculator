@@ -224,7 +224,7 @@ ON_Tax_Formula <- function(Taxable_Income_Y) {
 
 # Ontario surtax is calculated on the basis of net tax (Ontario tax owed less NRTCs).
 # The formula is similar to Ontario income tax, but with only two brackets.
-ON_SurTax_Formula <- function(ON_Net_Tax_Y) {
+ON_Surtax_Formula <- function(ON_Net_Tax_Y) {
   Tax <- 0
   for (i in seq_along(ON_Surtax_Rates)) {
     if (ON_Net_Tax_Y > ON_Surtax_Brackets[i]) {
@@ -232,6 +232,7 @@ ON_SurTax_Formula <- function(ON_Net_Tax_Y) {
       Tax <- Tax + Marginal_Income * ON_Surtax_Rates[i]
     }
   }
+  return(Tax)
 }
 
 # Ontario health premimum is calculated on teh basis of taxable income.
@@ -242,7 +243,7 @@ ON_Health_Premium_Formula <- function(Taxable_Income_Y) {
     if (Taxable_Income_Y > ON_Health_Premium_Brackets[i]) {
       Marginal_Income <- Taxable_Income_Y - ON_Health_Premium_Brackets[i]
       Tax <- min(
-        Marginal_Income * ON_Health_Premimum_Rates[i] + ON_Health_Premimum_Bracket_Maxes[i - 1], 
+        Marginal_Income * ON_Health_Premimum_Rates[i] + ON_Health_Premium_Bracket_Maxes[i - 1], 
         ON_Health_Premium_Bracket_Maxes[i]
         )
     }
@@ -259,22 +260,47 @@ Canada_Employment_NRTC_Formula <- function(Gross_Income_Y)
     pmin(Canada_Employment_NRTC_Max)
 }
 
-# Payroll deduction functions ----
+# Payroll deduction functions -----------------------------------------------
 
-# This formula calculates benefit unit exemplars' monthly tax deduction. For simplicity and based on the limitations of SAMS data, it is assumed that social assistance recipients do not request changes to their tax deductions on the TD1 or TD1ON.
+# This formula calculates benefit unit exemplars' annual payroll tax deduction. For simplicity and based on the limitations of SAMS data, it is assumed that social assistance recipients do not request changes to their tax deductions on the TD1 or TD1ON.
 Tax_Deduct_Formula <- function(Gross_Income_Y) {
   Taxable_Income_Y <- Taxable_Income_Formula(Gross_Income_Y)
   # Federal tax is reduced by basic NRTC, EI premiums, CPP base contributions, and the Canada Employment Amount NRTC
-  Fed_Tax_Reduction_Y <- sum(
+  Fed_NRTCs_Y <- sum(
     Fed_Basic_NRTC,
     EI_Deduct_Formula(Gross_Income_Y), 
     CPP_Base_Deduct_Formula(Gross_Income_Y),
     Canada_Employment_NRTC_Formula(Gross_Income_Y)
-    ) * Fed_Tax_Rates[1] # Value of deductions are multiplied by lowest fed tax rate
+  ) * Fed_Tax_Rates[1] # Value of deductions are multiplied by lowest fed tax rate
   # Net tax is tax owed less these basic deductions
-  Net_Federal_Tax_Y <- (Fed_Tax_Formula(Taxable_Income_Y) - Fed_Tax_Reduction_Y) %>%
+  Net_Federal_Tax_Y <- (Fed_Tax_Formula(Taxable_Income_Y) - Fed_NRTCs_Y) %>%
     pmax(0) # Cannot be negative
-  return(Net_Federal_Tax_Y/12)
+  ON_NRTCs_Y <- sum(
+    ON_Basic_NRTC,
+    EI_Deduct_Formula(Gross_Income_Y),
+    CPP_Base_Deduct_Formula(Gross_Income_Y)
+  ) * ON_Tax_Rates[1]
+  Net_ON_Tax_Y <- (ON_Tax_Formula(Taxable_Income_Y) - ON_NRTCs_Y) %>%
+    pmax(0)
+  ON_Surtax_Y <- ON_Surtax_Formula(Net_ON_Tax_Y)
+  ON_Health_Premium_Y <- ON_Health_Premium_Formula(Taxable_Income_Y)
+  # Ontario also has a tax reduction formula we need to calculate
+  ON_Tax_Reduction <- (
+    (ON_Basic_Tax_Reduction * 2) - (Net_ON_Tax_Y + ON_Surtax_Y)
+  ) %>%
+    pmax(0) %>%
+    pmin(Net_ON_Tax_Y + ON_Surtax_Y)
+  Payroll_Tax_Deduct_Y <- (
+    Net_Federal_Tax_Y + Net_ON_Tax_Y + ON_Surtax_Y + ON_Health_Premium_Y - ON_Tax_Reduction
+    ) %>%
+    pmax(0)
+  return(Payroll_Tax_Deduct_Y)
+}
+
+# Now integrating all of those formulas into a monthly take-home pay after all payroll deductions.
+Take_Home_Pay_Formula <- function(Gross_Income_Y) {
+  (Gross_Income_Y - EI_Deduct_Formula(Gross_Income_Y) - CPP_Base_Deduct_Formula(Gross_Income_Y) - CPP_Enhanced_Deduct_Formula(Gross_Income_Y) - Tax_Deduct_Formula(Gross_Income_Y)
+   ) / 12 
 }
 
 # Function to calculate gross income from net income
@@ -963,7 +989,7 @@ server <- function(input, output, session) {
     # Do not perform the output until all the input is available.
     req(IV$is_valid())
     Default_Scenarios <- tibble(
-      Scenario = as.factor(c(1:3)),
+      Scenario = as.factor(c(1:3))
     )
     Default_Scenarios %>%
       mutate(
@@ -1057,6 +1083,11 @@ server <- function(input, output, session) {
             .env$input$Take_Home_Pay_1_PM,
             .env$Take_Home_Pay_2_PM_Default(),
             .env$Take_Home_Pay_3_PM_Default()
+            ),
+          !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
+          ~ map_dbl(
+            .data$Gross_Income_PM * 12, # Annualizing the monthly gross income
+            Take_Home_Pay_Formula
             )
           ),
         Take_Home_Pay_SM = case_when(
