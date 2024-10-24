@@ -1,12 +1,13 @@
 ## Task for tomorrow:
-# Change all income names to either Take_Home_Pay or Gross_Inc
+# Change to shinyvalidate
+# vectorize tax formulas
 
 
 
 # Packages
 library(tidyverse)
 library(shiny) 
-library(shinyFeedback)
+# library(shinyFeedback)
 library(scales)
 library(shinyWidgets)
 library(shinycssloaders)
@@ -51,6 +52,12 @@ ON_Tax_Brackets <- c(0, 51446, 102894, 150000, 220000)
 ON_Surtax_Rates <- c(0.2, 0.36)
 # Ontario surtax brackets from ON428 for 2024
 ON_Surtax_Brackets <- c(0, 5554, 7108)
+# Ontario healh premium brackets from ON428 for 2024.
+ON_Health_Premium_Brackets <- c(0, 20000, 36000, 48000, 72000, 200000)
+# There are only two health premium rates, applied progressively to the brackets.
+ON_Health_Premimum_Rates <- c(.06, .06, .25, .25, .25, .25)
+# The maximum health premium for each bracket.
+ON_Health_Premium_Bracket_Maxes <- c(0, 300, 450, 600, 750, 900)
 # The basic personal amount non-refundable tax credit for federal and Ontario in 2024.
 # Given the social assistance population, it seems reasonable to assume net incomes will be below $173,205, and therefore give everyone the basic personal amount supplement.
 Fed_Basic_NRTC <- 15705
@@ -75,18 +82,6 @@ ON_Dep_NRTC_Max <- 10528
 ON_Disability_NRTC_Self <- 10017
 ON_Basic_Tax_Reduction <- 286
 ON_Dep_Tax_Reduction <- 529
-ON_Health_Premium_Bracket_1_bottom <- 20000
-ON_Health_Premium_Bracket_1_top <- 25000
-ON_Health_Premium_Bracket_2_bottom <- 36000
-ON_Health_Premium_Bracket_2_top <- 38500
-ON_Health_Premium_Bracket_3_bottom <- 48000
-ON_Health_Premium_Bracket_3_top <- 48600
-ON_Health_Premium_Bracket_4_bottom <- 72000
-ON_Health_Premium_Bracket_4_top <- 72600
-ON_Health_Premium_Bracket_5_bottom <- 200000
-ON_Health_Premium_Bracket_5_top <- 200600
-ON_Health_Premium_Rate_1 <- .06
-ON_Health_Premium_Rate_2 <- .25
 # These parameters come from the Ontario Worksheet updated to 2024.
 ON_Age_Amount_NRTC_Max <- 6054
 ON_Age_Amount_Income_Threshold <- 45068
@@ -167,22 +162,20 @@ Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
 
-# Default scenarios -----
-# This is a tibble containing all of the default settings that gets updated when users change inputs in the UI
-
-
-
 # Income Functions ----
+
 # Calculating gross monthly income from hourly wage and hours per week.
 Wage_To_Gross_Formula <- function(Wage, Hours_W) {
   (Wage * Hours_W) * 52 / 12
 }
+
 # Annual EI deductions.
 EI_Deduct_Formula <- function(Gross_Income_Y) {
   (Gross_Income_Y * EI_Rate) %>%
     # EI deductions cannot exceed an annual cap.
     pmin(EI_Cap_Y)
 }
+
 # These formulas calculate benefit unit exemplars' annual base and enhanced CPP deductions.
 # The CCP formulas are taken from Schedule 8.
 CPP_Base_Deduct_Formula <- function(Gross_Income_Y) {
@@ -193,16 +186,19 @@ CPP_Base_Deduct_Formula <- function(Gross_Income_Y) {
     pmin(CPP_Base_Income_Deduction_Cap_Y)
 }
 CPP_Enhanced_Deduct_Formula <- function(Gross_Income_Y) {
-  ((Gross_Income_Y - CPP_Max_Exemption_Y) * CPP_Enhanced_Rate) %>%
+  ((Gross_Income_Y - CPP_Threshold_Y) * CPP_Enhanced_Rate) %>%
     pmax(0) %>%
     pmin(CPP_Enhanced_Income_Deduction_Cap_Y)
 }
+
+# Tax functions ----
 # Function to calculate taxable income. 
 # If the employee does not fill out all fields in TD1 or TD1ON, then the only reduction to taxable income is CPP Enhanced contributions.
 Taxable_Income_Formula <- function(Gross_Income_Y) {
   Gross_Income_Y - CPP_Enhanced_Deduct_Formula(Gross_Income_Y)
 }
-# Function to calculate federal income tax
+
+# Function to calculate annual federal income tax
 Fed_Tax_Formula <- function(Taxable_Income_Y) {
   Tax <- 0
   for (i in seq_along(Fed_Tax_Rates)) {
@@ -213,6 +209,74 @@ Fed_Tax_Formula <- function(Taxable_Income_Y) {
   }
   return(Tax)
 }
+
+# Function to calculate annual Ontario income tax
+ON_Tax_Formula <- function(Taxable_Income_Y) {
+  Tax <- 0
+  for (i in seq_along(ON_Tax_Rates)) {
+    if (Taxable_Income_Y > ON_Tax_Brackets[i]) {
+      Marginal_Income <- min(Taxable_Income_Y, ON_Tax_Brackets[i + 1]) - ON_Tax_Brackets[i]
+      Tax <- Tax + Marginal_Income * ON_Tax_Rates[i]
+    }
+  }
+  return(Tax)
+}
+
+# Ontario surtax is calculated on the basis of net tax (Ontario tax owed less NRTCs).
+# The formula is similar to Ontario income tax, but with only two brackets.
+ON_SurTax_Formula <- function(ON_Net_Tax_Y) {
+  Tax <- 0
+  for (i in seq_along(ON_Surtax_Rates)) {
+    if (ON_Net_Tax_Y > ON_Surtax_Brackets[i]) {
+      Marginal_Income <- min(ON_Net_Tax_Y, ON_Surtax_Brackets[i + 1]) - ON_Surtax_Brackets[i]
+      Tax <- Tax + Marginal_Income * ON_Surtax_Rates[i]
+    }
+  }
+}
+
+# Ontario health premimum is calculated on teh basis of taxable income.
+# Although similar to the calculation of Ontario income tax, each bracket has a maximum that is less than the rate for that bracket applied to the marginal income span of that bracket.
+ON_Health_Premium_Formula <- function(Taxable_Income_Y) {
+  Tax <- 0
+  for (i in seq_along(ON_Health_Premimum_Rates)) {
+    if (Taxable_Income_Y > ON_Health_Premium_Brackets[i]) {
+      Marginal_Income <- Taxable_Income_Y - ON_Health_Premium_Brackets[i]
+      Tax <- min(
+        Marginal_Income * ON_Health_Premimum_Rates[i] + ON_Health_Premimum_Bracket_Maxes[i - 1], 
+        ON_Health_Premium_Bracket_Maxes[i]
+        )
+    }
+  }
+  return(Tax)
+}
+
+# Non-refundable tax credit formulas ----
+
+Canada_Employment_NRTC_Formula <- function(Gross_Income_Y)
+{
+  (Gross_Income_Y) %>%
+    # Canada Employment amount has a cap.
+    pmin(Canada_Employment_NRTC_Max)
+}
+
+# Payroll deduction functions ----
+
+# This formula calculates benefit unit exemplars' monthly tax deduction. For simplicity and based on the limitations of SAMS data, it is assumed that social assistance recipients do not request changes to their tax deductions on the TD1 or TD1ON.
+Tax_Deduct_Formula <- function(Gross_Income_Y) {
+  Taxable_Income_Y <- Taxable_Income_Formula(Gross_Income_Y)
+  # Federal tax is reduced by basic NRTC, EI premiums, CPP base contributions, and the Canada Employment Amount NRTC
+  Fed_Tax_Reduction_Y <- sum(
+    Fed_Basic_NRTC,
+    EI_Deduct_Formula(Gross_Income_Y), 
+    CPP_Base_Deduct_Formula(Gross_Income_Y),
+    Canada_Employment_NRTC_Formula(Gross_Income_Y)
+    ) * Fed_Tax_Rates[1] # Value of deductions are multiplied by lowest fed tax rate
+  # Net tax is tax owed less these basic deductions
+  Net_Federal_Tax_Y <- (Fed_Tax_Formula(Taxable_Income_Y) - Fed_Tax_Reduction_Y) %>%
+    pmax(0) # Cannot be negative
+  return(Net_Federal_Tax_Y/12)
+}
+
 # Function to calculate gross income from net income
 Take_Home_To_Gross_Formula <- function(Take_Home_Pay_Y) {
   # Iterative approach to estimate gross income
@@ -318,10 +382,11 @@ ui <- fluidPage(
                                     )
                         ),
                  column(2,
-                        textInput(
+                        autonumericInput(
                           "SA_Payment",
                           label = "What is your typical monthly social assistance payment?",
-                          value = "",
+                          value = NULL,
+                          currencySymbol = "$"
                           )
                           ),
                  column(1,
@@ -550,59 +615,44 @@ server <- function(input, output, session) {
   # thematic::thematic_shiny()
   shiny_session <- getDefaultReactiveDomain()
   
+  # enabling validation error messages
+  IV <- InputValidator$new()
+  IV$add_rule("Program", sv_required())
+  IV$add_rule("SA_Payment", sv_required())
+  IV$add_rule("Spouse", sv_required())
+  
   # About Me tab server ---------
   # Creating a variable that tracks the name of the program to which user belongs.
-  Program_Name <- reactive({
+  Program_Name <- reactiveVal("social assistance")
+  observeEvent(input$Program, {
     if(input$Program == "Ontario Works") {
-      "Ontario Works"
+      Program_Name("Ontario Works")
     } else {
-      "ODSP"
+      Program_Name("ODSP")
     }
-  })
+  }, ignoreInit = TRUE)
   
   # Hiding missing input feedback once input detected.
   observeEvent(input$Program, {
     if (input$Program != "") {
-      hideFeedback("Program")
+      # hideFeedback("Program")
       removeNotification("Missing_About_Me")
     }
   })
   observeEvent(input$Spouse, {
     if (input$Spouse != "") {
-      hideFeedback("Spouse")
+      # hideFeedback("Spouse")
       removeNotification("Missing_About_Me")
     }
   })
   observeEvent(input$SA_Payment, {
-    if (input$SA_Payment != "") {
-      hideFeedback("SA_Payment")
+    if (!is.null(input$SA_Payment)) {
+      # hideFeedback("SA_Payment")
       removeNotification("Missing_About_Me")
     }
   })
-  
-  # Formatting a textInput field as a currency field
-  SA_Pay_Value <- reactiveVal(NULL)
-  observeEvent(input$SA_Payment, {
-    Out_Num <- as.numeric(str_extract(
-      input$SA_Payment,
-      "\\d*\\.?\\d+"
-        )
-      )
-    if (!is.na(Out_Num)) {
-      Formatted_Value <- paste0(
-        "$",
-        format(Out_Num, big.mark = ",", digits = 2, nsmall = 2
-               )
-      )
-      updateTextInput(
-        session = shiny_session,
-        "SA_Payment",
-        value = Formatted_Value
-      )
-      SA_Pay_Value(Out_Num) # making a numeric output available for calculations
-      }
-  })
-  
+
+  # Making some of the UI instructions responsive to user input.
   observeEvent(list(input$Spouse, input$Program), {
     Spouse_Instruct <- if(input$Spouse == "Yes") {
       "or your spouse"
@@ -909,35 +959,11 @@ server <- function(input, output, session) {
     )
     }
     # Marking the required inputs for user completion.
-    feedbackDanger(
-      "Spouse",
-      input$Spouse == "",
-      "Input requried"
-    )
-    feedbackDanger(
-      "Program",
-      input$Program == "",
-      "Input required"
-    )
-    feedbackDanger(
-      "SA_Payment",
-      is.null(input$SA_Payment) | input$SA_Payment == "",
-      "Input required"
-    )
+    IV$enable()
     # Do not perform the output until all the input is available.
-    req(input$Spouse, input$Program, 
-        # input$SA_Payment
-        )
+    req(IV$is_valid())
     Default_Scenarios <- tibble(
       Scenario = as.factor(c(1:3)),
-      # Spouse = "No",
-      # Dependents = 0,
-      # Wage_P = c(NA, Min_Wage, Min_Wage),
-      # Wage_S = NA,
-      # Hours_PW = c(NA, Part_Time_Hours, Full_Time_Hours),
-      # Hours_SW = NA,
-      # Take_Home_Pay_PM = NA,
-      # Take_Home_Pay_SM = NA
     )
     Default_Scenarios %>%
       mutate(
@@ -947,8 +973,8 @@ server <- function(input, output, session) {
           .env$input$Program == "Ontario Disability Support Program (ODSP)"
           ~ "ODSP"
         ),
-        SA_Pay = c(
-          .env$SA_Pay_Value(),
+        SA_Pay_BM = c(
+          .env$input$SA_Payment,
           NA,
           NA
           ),
@@ -1013,7 +1039,10 @@ server <- function(input, output, session) {
           ~ Wage_To_Gross_Formula(
             .data$Wage_P,
             .data$Hours_PW
-            )
+            ),
+          # Temporary constant to check other formulas. REMOVE.
+          is.na(.data$Wage_P)
+          ~ 2300
           ),
         Gross_Income_SM = case_when(
           !is.na(.data$Wage_S) & !is.na(.data$Hours_SW)
@@ -1037,6 +1066,11 @@ server <- function(input, output, session) {
             .env$Take_Home_Pay_2_SM_Default(),
             .env$Take_Home_Pay_3_SM_Default()
             )
+          ),
+        # Tax formulas need to be mapped to handle vector inputs from tibble due to their 'if' statements.
+        Tax_Deduct_PM = map_dbl(
+          .data$Gross_Income_PM * 12, # Annualizing the monthly gross income
+          Tax_Deduct_Formula
           )
         )
     })
