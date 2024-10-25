@@ -201,10 +201,14 @@ Taxable_Income_Formula <- function(Gross_Income_Y) {
 # Function to calculate annual federal income tax
 Fed_Tax_Formula <- function(Taxable_Income_Y) {
   Tax <- 0
-  for (i in seq_along(Fed_Tax_Rates)) {
-    if (Taxable_Income_Y > Fed_Tax_Brackets[i]) {
-      Marginal_Income <- min(Taxable_Income_Y, Fed_Tax_Brackets[i + 1]) - Fed_Tax_Brackets[i]
-      Tax <- Tax + Marginal_Income * Fed_Tax_Rates[i]
+  if (is.na(Taxable_Income_Y)) {
+    NA # NA handling for if statements to account for multiple user input options
+  } else {
+    for (i in seq_along(Fed_Tax_Rates)) {
+      if (Taxable_Income_Y > Fed_Tax_Brackets[i]) {
+        Marginal_Income <- min(Taxable_Income_Y, Fed_Tax_Brackets[i + 1]) - Fed_Tax_Brackets[i]
+        Tax <- Tax + Marginal_Income * Fed_Tax_Rates[i]
+      }
     }
   }
   return(Tax)
@@ -213,10 +217,14 @@ Fed_Tax_Formula <- function(Taxable_Income_Y) {
 # Function to calculate annual Ontario income tax
 ON_Tax_Formula <- function(Taxable_Income_Y) {
   Tax <- 0
-  for (i in seq_along(ON_Tax_Rates)) {
-    if (Taxable_Income_Y > ON_Tax_Brackets[i]) {
-      Marginal_Income <- min(Taxable_Income_Y, ON_Tax_Brackets[i + 1]) - ON_Tax_Brackets[i]
-      Tax <- Tax + Marginal_Income * ON_Tax_Rates[i]
+  if (is.na(Taxable_Income_Y)) {
+    NA
+  } else {
+    for (i in seq_along(ON_Tax_Rates)) {
+      if (Taxable_Income_Y > ON_Tax_Brackets[i]) {
+        Marginal_Income <- min(Taxable_Income_Y, ON_Tax_Brackets[i + 1]) - ON_Tax_Brackets[i]
+        Tax <- Tax + Marginal_Income * ON_Tax_Rates[i]
+      }
     }
   }
   return(Tax)
@@ -226,10 +234,14 @@ ON_Tax_Formula <- function(Taxable_Income_Y) {
 # The formula is similar to Ontario income tax, but with only two brackets.
 ON_Surtax_Formula <- function(ON_Net_Tax_Y) {
   Tax <- 0
-  for (i in seq_along(ON_Surtax_Rates)) {
-    if (ON_Net_Tax_Y > ON_Surtax_Brackets[i]) {
-      Marginal_Income <- min(ON_Net_Tax_Y, ON_Surtax_Brackets[i + 1]) - ON_Surtax_Brackets[i]
-      Tax <- Tax + Marginal_Income * ON_Surtax_Rates[i]
+  if (is.na(ON_Net_Tax_Y)) {
+    NA
+  } else {
+    for (i in seq_along(ON_Surtax_Rates)) {
+      if (ON_Net_Tax_Y > ON_Surtax_Brackets[i]) {
+        Marginal_Income <- min(ON_Net_Tax_Y, ON_Surtax_Brackets[i + 1]) - ON_Surtax_Brackets[i]
+        Tax <- Tax + Marginal_Income * ON_Surtax_Rates[i]
+      }
     }
   }
   return(Tax)
@@ -239,13 +251,17 @@ ON_Surtax_Formula <- function(ON_Net_Tax_Y) {
 # Although similar to the calculation of Ontario income tax, each bracket has a maximum that is less than the rate for that bracket applied to the marginal income span of that bracket.
 ON_Health_Premium_Formula <- function(Taxable_Income_Y) {
   Tax <- 0
-  for (i in seq_along(ON_Health_Premimum_Rates)) {
-    if (Taxable_Income_Y > ON_Health_Premium_Brackets[i]) {
-      Marginal_Income <- Taxable_Income_Y - ON_Health_Premium_Brackets[i]
-      Tax <- min(
-        Marginal_Income * ON_Health_Premimum_Rates[i] + ON_Health_Premium_Bracket_Maxes[i - 1], 
-        ON_Health_Premium_Bracket_Maxes[i]
-        )
+  if (is.na(Taxable_Income_Y)) {
+    NA
+  } else {
+    for (i in seq_along(ON_Health_Premimum_Rates)) {
+      if (Taxable_Income_Y > ON_Health_Premium_Brackets[i]) {
+        Marginal_Income <- Taxable_Income_Y - ON_Health_Premium_Brackets[i]
+        Tax <- min(
+          Marginal_Income * ON_Health_Premimum_Rates[i] + ON_Health_Premium_Bracket_Maxes[i - 1], 
+          ON_Health_Premium_Bracket_Maxes[i]
+          )
+      }
     }
   }
   return(Tax)
@@ -1065,10 +1081,10 @@ server <- function(input, output, session) {
           ~ Wage_To_Gross_Formula(
             .data$Wage_P,
             .data$Hours_PW
-            ),
+            )
           # Temporary constant to check other formulas. REMOVE.
-          is.na(.data$Wage_P)
-          ~ 2300
+          # is.na(.data$Wage_P)
+          # ~ 2300
           ),
         Gross_Income_SM = case_when(
           !is.na(.data$Wage_S) & !is.na(.data$Hours_SW)
@@ -1085,7 +1101,7 @@ server <- function(input, output, session) {
             .env$Take_Home_Pay_3_PM_Default()
             ),
           !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
-          ~ map_dbl(
+          ~ map_dbl( # map function on account of if statements to handle vector inputs
             .data$Gross_Income_PM * 12, # Annualizing the monthly gross income
             Take_Home_Pay_Formula
             )
@@ -1096,13 +1112,18 @@ server <- function(input, output, session) {
             .env$input$Take_Home_Pay_1_SM,
             .env$Take_Home_Pay_2_SM_Default(),
             .env$Take_Home_Pay_3_SM_Default()
+            ),
+          !is.na(.data$Wage_S) & !is.na(.data$Hours_SW)
+          ~ map_dbl(
+            .data$Gross_Income_SM * 12,
+            Take_Home_Pay_Formula
             )
-          ),
-        # Tax formulas need to be mapped to handle vector inputs from tibble due to their 'if' statements.
-        Tax_Deduct_PM = map_dbl(
-          .data$Gross_Income_PM * 12, # Annualizing the monthly gross income
-          Tax_Deduct_Formula
           )
+        # Tax formulas need to be mapped to handle vector inputs from tibble due to their 'if' statements.
+        # Tax_Deduct_PM = map_dbl(
+        #   .data$Gross_Income_PM * 12, # Annualizing the monthly gross income
+        #   Tax_Deduct_Formula
+        #   )
         )
     })
 
