@@ -206,7 +206,11 @@ Fed_Tax_Formula <- function(Taxable_Income_Y) {
   } else {
     for (i in seq_along(Fed_Tax_Rates)) {
       if (Taxable_Income_Y > Fed_Tax_Brackets[i]) {
-        Marginal_Income <- min(Taxable_Income_Y, Fed_Tax_Brackets[i + 1]) - Fed_Tax_Brackets[i]
+        Marginal_Income <- pmin(
+          Taxable_Income_Y,
+          Fed_Tax_Brackets[i + 1],
+          na.rm = TRUE # NA handling for people in top income bracket
+          ) - Fed_Tax_Brackets[i]
         Tax <- Tax + Marginal_Income * Fed_Tax_Rates[i]
       }
     }
@@ -222,7 +226,11 @@ ON_Tax_Formula <- function(Taxable_Income_Y) {
   } else {
     for (i in seq_along(ON_Tax_Rates)) {
       if (Taxable_Income_Y > ON_Tax_Brackets[i]) {
-        Marginal_Income <- min(Taxable_Income_Y, ON_Tax_Brackets[i + 1]) - ON_Tax_Brackets[i]
+        Marginal_Income <- pmin(
+          Taxable_Income_Y,
+          ON_Tax_Brackets[i + 1],
+          na.rm = TRUE
+          ) - ON_Tax_Brackets[i]
         Tax <- Tax + Marginal_Income * ON_Tax_Rates[i]
       }
     }
@@ -239,7 +247,11 @@ ON_Surtax_Formula <- function(ON_Net_Tax_Y) {
   } else {
     for (i in seq_along(ON_Surtax_Rates)) {
       if (ON_Net_Tax_Y > ON_Surtax_Brackets[i]) {
-        Marginal_Income <- min(ON_Net_Tax_Y, ON_Surtax_Brackets[i + 1]) - ON_Surtax_Brackets[i]
+        Marginal_Income <- pmin(
+          ON_Net_Tax_Y,
+          ON_Surtax_Brackets[i + 1],
+          na.rm = TRUE
+          ) - ON_Surtax_Brackets[i]
         Tax <- Tax + Marginal_Income * ON_Surtax_Rates[i]
       }
     }
@@ -319,33 +331,36 @@ Take_Home_Pay_Formula <- function(Gross_Income_Y) {
    ) / 12 
 }
 
-# Function to calculate gross income from net income
-Take_Home_To_Gross_Formula <- function(Take_Home_Pay_Y) {
-  # Iterative approach to estimate gross income
-  Gross_Income_Y <- Take_Home_Pay_Y
-  Results <- data.frame(Iteration = integer(), GrossIncome = numeric())
-  Iteration <- 0
-  Difference <- Inf
-  # Iterate until difference between iterations in gross income calculations is less than 10 cents.
-  while (difference >= 0.1) {
-    Iteration <- Iteration + 1
-    Previous_Gross_Income <- Gross_Income_Y
-    EI_Deduction_Y <- EI_Deduct_Formula(Gross_Income_Y)
-    CPP_Base_Deduct_Y <- CPP_Base_Deduct_Formula(Gross_Income_Y)
-    CPP_Enhanced_Deduct_Y <- CPP_Enhanced_Deduct_Formula(Gross_Income_Y)
-    Taxable_Income_Y <- Taxable_Income_Formula(Gross_Income_Y)
-    Fed_Tax_Y <- Fed_Tax_Formula(Taxable_Income_Y)
-    Deductions <- EI_Deduction_Y + CPP_Base_Deduct_Y + CPP_Enhanced_Deduct_Y + Fed_Tax_Y
-    Gross_Income_Y <- Take_Home_Pay_Y + Deductions
-    difference <- abs(Gross_Income_Y - Previous_Gross_Income_Y)
-    results <- rbind(results, data.frame(Iteration = iteration, GrossIncome = gross_income))
+# Function to calculate gross monthly income from monthly take-home pay
+Take_Home_To_Gross_Formula <- function(Take_Home_Pay_M) {
+  if (is.na(Take_Home_Pay_M)) {
+    NA
+  } else {
+    # Iterative approach to estimate gross income
+    Gross_Income_Y <- Take_Home_Pay_M * 12
+    # Results <- data.frame(Iteration = integer(), GrossIncome = numeric())
+    Iteration <- 0
+    Difference <- Inf
+    # Iterate until difference between iterations in gross income calculations is less than 10 cents.
+    while (Difference >= 1) { 
+      Iteration <- Iteration + 1
+      Previous_Gross_Income_Y <- Gross_Income_Y
+      EI_Deduct_Y <- EI_Deduct_Formula(Gross_Income_Y)
+      CPP_Base_Deduct_Y <- CPP_Base_Deduct_Formula(Gross_Income_Y)
+      CPP_Enhanced_Deduct_Y <- CPP_Enhanced_Deduct_Formula(Gross_Income_Y)
+      # Taxable_Income_Y <- Taxable_Income_Formula(Gross_Income_Y)
+      # Fed_Tax_Y <- Fed_Tax_Formula(Taxable_Income_Y)
+      Tax_Deduct_Y <- Tax_Deduct_Formula(Gross_Income_Y)
+      Deducts <- EI_Deduct_Y + CPP_Base_Deduct_Y + CPP_Enhanced_Deduct_Y + Tax_Deduct_Y
+      Gross_Income_Y <- (Take_Home_Pay_M * 12) + Deducts
+      Difference <- abs(Gross_Income_Y - Previous_Gross_Income_Y)
+      # results <- rbind(results, data.frame(Iteration = iteration, GrossIncome = gross_income))
+    }
   }
-  
-  # Print the results in a table format
-  kable(results, format = "markdown", col.names = c("Iteration", "Gross Income"))
-  
-  return(Gross_Income_Y)
+  return(Gross_Income_Y / 12)
 }
+
+
 # UI functions ----
 Help_Icon <- function(AODA_Title) {
   bs_icon("question-circle-fill"
@@ -1081,10 +1096,16 @@ server <- function(input, output, session) {
           ~ Wage_To_Gross_Formula(
             .data$Wage_P,
             .data$Hours_PW
+            ),
+          is.na(.data$Wage_P) & is.na(.data$Hours_PW)
+          ~ map_dbl(
+            c(
+              .env$input$Take_Home_Pay_1_PM,
+              .env$Take_Home_Pay_2_PM_Default(),
+              .env$Take_Home_Pay_3_PM_Default()
+            ),
+            Take_Home_To_Gross_Formula
             )
-          # Temporary constant to check other formulas. REMOVE.
-          # is.na(.data$Wage_P)
-          # ~ 2300
           ),
         Gross_Income_SM = case_when(
           !is.na(.data$Wage_S) & !is.na(.data$Hours_SW)
@@ -1119,11 +1140,6 @@ server <- function(input, output, session) {
             Take_Home_Pay_Formula
             )
           )
-        # Tax formulas need to be mapped to handle vector inputs from tibble due to their 'if' statements.
-        # Tax_Deduct_PM = map_dbl(
-        #   .data$Gross_Income_PM * 12, # Annualizing the monthly gross income
-        #   Tax_Deduct_Formula
-        #   )
         )
     })
 
