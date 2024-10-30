@@ -1,6 +1,8 @@
 ## Task for tomorrow:
-# Change to shinyvalidate
-# vectorize tax formulas
+# Add annual salary input
+  # Check UI for salary
+  # Create default values to avoid render errors
+  # Write mutate commands to add to tibble
 
 
 
@@ -26,6 +28,8 @@ Part_Time_Hours <- 17
 Full_Time_Hours <- 40
 Part_Time_Take_Home_Pay <- 1170
 Full_Time_Take_Home_Pay <- 2400
+Part_Time_Salary <- Min_Wage * Part_Time_Hours * 52
+Full_Time_Salary <- Min_Wage * Full_Time_Hours * 52
 # EI deduction rate for 2024
 EI_Rate <- 0.0166
 # Annual deduction cap for EI in 2024
@@ -360,6 +364,10 @@ Take_Home_To_Gross_Formula <- function(Take_Home_Pay_M) {
   return(Gross_Income_Y / 12)
 }
 
+# Social Assistance Functions -------------------------------
+# SA_Reduction_Formula <- function(Take_Home_Pay_M, Disability) {
+#   if ()
+# }
 
 # UI functions ----
 Help_Icon <- function(AODA_Title) {
@@ -432,13 +440,15 @@ ui <- fluidPage(
                  column(6,
                         selectInput("Program",
                                     "Which social assistance program do you want to use for calculations?",
-                                    c("",
-                                      "Ontario Works",
-                                      "Ontario Disability Support Program (ODSP)"
-                                      )
-                                    )
+                                    choices = c(
+                                      " " = "social assistance",
+                                      "Ontario Works" = "Ontario Works",
+                                      "Ontario Disability Support Program (ODSP)" = "ODSP"
+                                    ),
+                                    selected = "social assistance"
+                        )
                         ),
-                 column(2,
+                 column(3,
                         autonumericInput(
                           "SA_Payment",
                           label = "What is your typical monthly social assistance payment?",
@@ -470,7 +480,7 @@ ui <- fluidPage(
                ),
                fluidRow(
                  column(6,
-                        conditionalPanel(condition = "input.Program == 'Ontario Disability Support Program (ODSP)' && input.Spouse == 'Yes'",
+                        conditionalPanel(condition = "input.Program == 'ODSP' && input.Spouse == 'Yes'",
                         selectInput("Disability_P",
                                     "Has ODSP determined that you have a disability?",
                                     c("Yes", "No")
@@ -479,7 +489,7 @@ ui <- fluidPage(
                         ),
                  column(6,
                         conditionalPanel(
-                          condition = "input.Program == 'Ontario Disability Support Program (ODSP)' && input.Spouse == 'Yes'",
+                          condition = "input.Program == 'ODSP' && input.Spouse == 'Yes'",
                           selectInput("Disability_S",
                                       "Has ODSP determined that your spouse has a disability?",
                                       c("No", "Yes")
@@ -624,20 +634,72 @@ ui <- fluidPage(
                       radioButtons(
                         "Format_2",
                         "Prefered income format",
-                        c("Hourly Wage", "Monthly take-home pay")
-                        ),
-                      uiOutput("Scen_2_Parameters")
+                        choiceValues = c("wage", "pay stub", "salary"),
+                        choiceNames = list(
+                          tooltip(
+                            trigger = list(
+                              "Hourly wage",
+                              Help_Icon("Info about hourly wage")
+                              ),
+                            "Enter pay per hour of work and hours worked per week to calculate work earnings for this scenario",
+                            placement = "top"
+                            ),
+                          tooltip(
+                            trigger = list(
+                              "Monthly take-home pay",
+                              Help_Icon("Info about take-home pay")
+                            ),
+                            "Enter monthly pay received from employer after payroll deductions like taxes, EI, and CPP to calculate work earnings for this scenario",
+                            placement = "top"
+                          ),
+                          tooltip(
+                            trigger = list(
+                              "Annual salary",
+                              Help_Icon("Info about annual salary")
+                            ),
+                            "Enter annual salary received from employer before payroll deductions (i.e., yearly pay written on job add or employment contract) to calculate work earnings for this scenario",
+                            placement = "bottom"
+                          )
+                        )
                       ),
+                      uiOutput("Scen_2_Parameters")
+                    ),
                  # Scenario 3 Card.
                  card(card_title("Scenario 3"),
                       class = "bg-dark",
                       radioButtons(
                         "Format_3",
                         "Prefered income format",
-                        c("Hourly Wage", "Monthly take-home pay")
-                        ),
+                        choiceValues = c("wage", "pay stub", "salary"),
+                        choiceNames = list(
+                          tooltip(
+                            trigger = list(
+                              "Hourly wage",
+                              Help_Icon("Info about hourly wage")
+                            ),
+                            "Enter pay per hour of work and hours worked per week to calculate work earnings for this scenario",
+                            placement = "top"
+                          ),
+                          tooltip(
+                            trigger = list(
+                              "Monthly take-home pay",
+                              Help_Icon("Info about take-home pay")
+                            ),
+                            "Enter monthly pay received from employer after payroll deductions like taxes, EI, and CPP to calculate work earnings for this scenario",
+                            placement = "top"
+                          ),
+                          tooltip(
+                            trigger = list(
+                              "Annual salary",
+                              Help_Icon("Info about annual salary")
+                            ),
+                            "Enter annual salary received from employer before payroll deductions (i.e., yearly pay written on job add or employment contract) to calculate work earnings for this scenario",
+                            placement = "bottom"
+                          )
+                        )
+                      ),
                       uiOutput("Scen_3_Parameters")
-                      )
+                    )
                  )
              ),
     # Income results tab -----
@@ -680,18 +742,18 @@ server <- function(input, output, session) {
   
   # About Me tab server ---------
   # Creating a variable that tracks the name of the program to which user belongs.
-  Program_Name <- reactiveVal("social assistance")
-  observeEvent(input$Program, {
-    if(input$Program == "Ontario Works") {
-      Program_Name("Ontario Works")
-    } else {
-      Program_Name("ODSP")
-    }
-  }, ignoreInit = TRUE)
+  # Program_Name <- reactiveVal("social assistance")
+  # observeEvent(input$Program, {
+  #   if(input$Program == "Ontario Works") {
+  #     Program_Name("Ontario Works")
+  #   } else {
+  #     Program_Name("ODSP")
+  #   }
+  # }, ignoreInit = TRUE)
   
   # Hiding missing input feedback once input detected.
   observeEvent(input$Program, {
-    if (input$Program != "") {
+    if (input$Program != "social assistance") {
       # hideFeedback("Program")
       removeNotification("Missing_About_Me")
     }
@@ -720,7 +782,7 @@ server <- function(input, output, session) {
       session = shiny_session,
       id = "Dep_Tip",
       label = paste0("Dependents include children or others who live with you and are included in your ",
-                     Program_Name(),
+                     input$Program,
                      " unit. Do not include yourself ",
                      Spouse_Instruct,
                      " in this number.")
@@ -729,14 +791,14 @@ server <- function(input, output, session) {
   observeEvent(input$Program, {
     label <- paste0(
       "What is your typical monthly ",
-      Program_Name(),
+      input$Program,
       " payment?"
       )
     tip <- paste0(
       "Your most recent ",
-      Program_Name(),
+      input$Program,
       " payment can be found on Ontario.ca/MyBenefits, your bank statement, or an ",
-      Program_Name(),
+      input$Program,
       " cheque"
     )
     update_tooltip(
@@ -759,8 +821,8 @@ server <- function(input, output, session) {
         "<li>and ",
         dollar(input$Take_Home_Pay_1_SM),
         " as your spouse's current monthly take-home pay from work"
-        )}
-      else ""
+      )}
+    else ""
     paste0(
       "On the previous page you put <ul><br><li>",
       dollar(input$Take_Home_Pay_1_PM),
@@ -770,6 +832,7 @@ server <- function(input, output, session) {
       "</ul>You can return to the <strong>About Me</strong> tab if you would like to change the work income for Scenario 1."
       )
   })
+  
   # Dynamically sized Scenario 2 card elements to accommodate spouse items.
   Spouse_Denom <- eventReactive(input$Spouse, {
     if(input$Spouse == "Yes") {
@@ -788,7 +851,7 @@ server <- function(input, output, session) {
   # Scenario 2 inputs.
   # Inputs for hourly wage option.
   output$Scen_2_Parameters <- renderUI( {
-    if(input$Format_2 == "Hourly Wage") {
+    if(input$Format_2 == "wage") {
       layout_column_wrap(
         width = 1/Spouse_Denom(),
         fill = FALSE,
@@ -839,8 +902,9 @@ server <- function(input, output, session) {
           )
         )
       )
+      # )
       # Input for monthly take-home pay option.
-    } else {
+    } else if (input$Format_2 == "pay stub") {
       layout_column_wrap(
         width = 1/Spouse_Denom(),
         fill = FALSE,
@@ -852,13 +916,7 @@ server <- function(input, output, session) {
         ),
         autonumericInput(
           "Take_Home_Pay_2_PM",
-          label = tooltip(
-            trigger = list(
-              "My monthly take-home pay from work",
-              Help_Icon("Info about take-home pay")
-              ),
-            "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. To show yourself as unemployed in this scenario, put $0."
-            ),
+          label = "My monthly take-home pay from work",
           value = Part_Time_Take_Home_Pay,
           min = 0,
           currencySymbol = "$"
@@ -867,14 +925,36 @@ server <- function(input, output, session) {
           condition = "input.Spouse == 'Yes'",
           autonumericInput(
             "Take_Home_Pay_2_SM",
-            label = tooltip(
-              trigger = list(
-                "Spouse's monthly take-home pay from work",
-                Help_Icon("Info about spousal income")
-                ),
-              "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. To show your spouse as unemployed in this scenario, put $0."
-              ),
+            label = "Spouse's monthly take-home pay from work",
             value = Part_Time_Take_Home_Pay,
+            min = 0,
+            currencySymbol = "$"
+          )
+        )
+      )
+    } else {
+      layout_column_wrap(
+        width = 1/Spouse_Denom(),
+        fill = FALSE,
+        heights_equal = "row",
+        h5("What if I worked...?"),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          h5("What if my spouse worked...?")
+        ),
+        autonumericInput(
+          "Gross_Salary_2_PY",
+          label = "My annual work salary",
+          value = Part_Time_Salary,
+          min = 0,
+          currencySymbol = "$"
+        ),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          autonumericInput(
+            "Gross_Salary_2_SY",
+            label = "Spouse's annual work salary",
+            value = Part_Time_Salary,
             min = 0,
             currencySymbol = "$"
           )
@@ -884,7 +964,7 @@ server <- function(input, output, session) {
   })
   # Scenario 3 inputs.
   output$Scen_3_Parameters <- renderUI( {
-    if(input$Format_3 == "Hourly Wage") {
+    if(input$Format_3 == "wage") {
       layout_column_wrap(
         width = 1/Spouse_Denom(),
         fill = FALSE,
@@ -935,7 +1015,7 @@ server <- function(input, output, session) {
           )
         )
       )
-    } else {
+    } else if (input$Format_3 == "pay stub") {
       layout_column_wrap(
         width = 1/Spouse_Denom(),
         fill = FALSE,
@@ -947,13 +1027,7 @@ server <- function(input, output, session) {
         ),
         autonumericInput(
           "Take_Home_Pay_3_PM",
-          label = tooltip(
-            trigger = list(
-              "My monthly take-home pay from work",
-              Help_Icon("Info about take-home pay")
-              ),
-            "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. To show yourself as unemployed in this scenario, put $0."
-            ),
+          label = "My monthly take-home pay from work",
           value = Full_Time_Take_Home_Pay,
           min = 0,
           currencySymbol = "$"
@@ -962,14 +1036,36 @@ server <- function(input, output, session) {
           condition = "input.Spouse == 'Yes'",
           autonumericInput(
             "Take_Home_Pay_3_SM",
-            label = tooltip(
-              trigger = list(
-                "Spouse's monthly take-home pay from work",
-                Help_Icon("Info about spousal income")
-                ),
-              "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. To show your spouse as unemployed in this scenario, put $0."
-              ),
+            label = "Spouse's monthly take-home pay from work",
             value = Full_Time_Take_Home_Pay,
+            min = 0,
+            currencySymbol = "$"
+          )
+        )
+      )
+    } else {
+      layout_column_wrap(
+        width = 1/Spouse_Denom(),
+        fill = FALSE,
+        heights_equal = "row",
+        h5("What if I worked...?"),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          h5("What if my spouse worked...?")
+        ),
+        autonumericInput(
+          "Gross_Salary_3_PY",
+          label = "My annual work salary",
+          value = Full_Time_Salary,
+          min = 0,
+          currencySymbol = "$"
+        ),
+        conditionalPanel(
+          condition = "input.Spouse == 'Yes'",
+          autonumericInput(
+            "Gross_Salary_3_SY",
+            label = "Spouse's annual work salary",
+            value = Full_Time_Salary,
             min = 0,
             currencySymbol = "$"
           )
@@ -981,7 +1077,7 @@ server <- function(input, output, session) {
   
   # Income results tab server ---------------
   
-  # Setting up a default values so that unrendered inputs don't throw errors
+  # Setting up a default values so that unrendered inputs from the work scenarios page don't throw errors
   Take_Home_Pay_2_PM_Default <- reactiveVal(Part_Time_Take_Home_Pay)
   # Making it possible to update the default value when rendered
   observeEvent(input$Take_Home_Pay_2_PM, {
@@ -1003,6 +1099,26 @@ server <- function(input, output, session) {
     Take_Home_Pay_3_SM_Default(input$Take_Home_Pay_3_SM)
   }, ignoreInit = TRUE, ignoreNULL = TRUE
   )
+  Gross_Salary_2_PY_Default <- reactiveVal(Part_Time_Salary)
+  observeEvent(input$Gross_Salary_2_PY, {
+    Gross_Salary_2_PY_Default(input$Gross_Salary_2_PY)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+  Gross_Salary_3_PY_Default <- reactiveVal(Full_Time_Salary)
+  observeEvent(input$Gross_Salary_3_PY, {
+    Gross_Salary_3_PY_Default(input$Gross_Salary_3_PY)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+  Gross_Salary_2_SY_Default <- reactiveVal(Part_Time_Salary)
+  observeEvent(input$Gross_Salary_2_SY, {
+    Gross_Salary_2_SY_Default(input$Gross_Salary_2_SY)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+  Gross_Salary_3_SY_Default <- reactiveVal(Full_Time_Salary)
+  observeEvent(input$Gross_Salary_3_SY, {
+    Gross_Salary_3_SY_Default(input$Gross_Salary_3_SY)
+  }, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
   
   Income_Tibble <- reactive( {
     # Creating a notice on the results page if there are missing input values
@@ -1020,16 +1136,11 @@ server <- function(input, output, session) {
     # Do not perform the output until all the input is available.
     req(IV$is_valid())
     Default_Scenarios <- tibble(
-      Scenario = as.factor(c(1:3))
+      Scenario = c("Scenario 1", "Scenario 2", "Scenario 3")
     )
     Default_Scenarios %>%
       mutate(
-        Program = case_when(
-          .env$input$Program == "Ontario Works"
-          ~ "OW",
-          .env$input$Program == "Ontario Disability Support Program (ODSP)"
-          ~ "ODSP"
-        ),
+        Program = .env$input$Program,
         SA_Pay_BM = c(
           .env$input$SA_Payment,
           NA,
@@ -1041,14 +1152,36 @@ server <- function(input, output, session) {
           .env$input$Spouse == "No"
           ~ "No"
         ),
+        # Disability_P = case_when(
+        #   .env$input$Program == "Ontario Disability Support Program (ODSP)"
+        # )
+        Income_Format = c(
+          "pay stub",
+          case_when(
+            .env$input$Format_2 == "wage"
+            ~ "wage",
+            .env$input$Format_2 == "pay stub"
+            ~ "pay stub",
+            .env$input$Format_2 == "salary"
+            ~ "salary"
+            ),
+          case_when(
+            .env$input$Format_3 == "wage"
+            ~ "wage",
+            .env$input$Format_3 == "pay stub"
+            ~ "pay stub",
+            .env$input$Format_3 == "salary"
+            ~ "salary"
+          )
+        ),
         Wage_P = c(
           NA,
           case_when(
-            .env$input$Format_2 == "Hourly Wage"
+            .env$input$Format_2 == "wage"
             ~ .env$input$Wage_2_P
           ),
           case_when(
-            .env$input$Format_3 == "Hourly Wage"
+            .env$input$Format_3 == "wage"
             ~ .env$input$Wage_3_P
           )
         ),
@@ -1057,11 +1190,11 @@ server <- function(input, output, session) {
           ~ c(
             NA,
             case_when(
-              .env$input$Format_2 == "Hourly Wage"
+              .env$input$Format_2 == "wage"
               ~ .env$input$Wage_2_S
               ),
             case_when(
-              .env$input$Format_3 == "Hourly Wage"
+              .env$input$Format_3 == "wage"
               ~ .env$input$Wage_3_S
               )
             )
@@ -1069,11 +1202,11 @@ server <- function(input, output, session) {
         Hours_PW = c(
           NA,
           case_when(
-            .env$input$Format_2 == "Hourly Wage"
+            .env$input$Format_2 == "wage"
             ~ .env$input$Hours_2_PW
           ),
           case_when(
-            .env$input$Format_3 == "Hourly Wage"
+            .env$input$Format_3 == "wage"
             ~ .env$input$Hours_3_PW
           )
         ),
@@ -1082,22 +1215,24 @@ server <- function(input, output, session) {
           ~ c(
             NA,
             case_when(
-              .env$input$Format_2 == "Hourly Wage"
+              .env$input$Format_2 == "wage"
               ~ .env$input$Hours_2_SW
             ),
             case_when(
-              .env$input$Format_3 == "Hourly Wage"
+              .env$input$Format_3 == "wage"
               ~ .env$input$Hours_3_SW
             )
           )
         ),
         Gross_Income_PM = case_when(
-          !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
+          # !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
+          .data$Income_Format == "wage"
           ~ Wage_To_Gross_Formula(
             .data$Wage_P,
             .data$Hours_PW
             ),
-          is.na(.data$Wage_P) & is.na(.data$Hours_PW)
+          .data$Income_Format == "pay stub"
+          # is.na(.data$Wage_P) & is.na(.data$Hours_PW)
           ~ map_dbl(
             c(
               .env$input$Take_Home_Pay_1_PM,
@@ -1105,36 +1240,66 @@ server <- function(input, output, session) {
               .env$Take_Home_Pay_3_PM_Default()
             ),
             Take_Home_To_Gross_Formula
+            ),
+          .data$Income_Format == "salary"
+          ~ map_dbl(
+            c(
+              NA,
+              .env$Gross_Salary_2_PY_Default(),
+              .env$Gross_Salary_3_PY_Default()
+              ),
+            ~{.x / 12} # converting annual salary to monthly gross pay
             )
           ),
         Gross_Income_SM = case_when(
-          !is.na(.data$Wage_S) & !is.na(.data$Hours_SW)
+          .data$Income_Format == "wage" & .data$Spouse == "Yes"
           ~ Wage_To_Gross_Formula(
             .data$Wage_S,
             .data$Hours_SW
-            )
+            ),
+          .data$Income_Format == "pay stub" & .data$Spouse == "Yes"
+          # is.na(.data$Wage_S) & is.na(.data$Hours_SW)
+          ~ map_dbl(
+            c(
+              .env$input$Take_Home_Pay_1_SM,
+              .env$Take_Home_Pay_2_SM_Default(),
+              .env$Take_Home_Pay_3_SM_Default()
+            ),
+            Take_Home_To_Gross_Formula
+            ),
+          .data$Income_Format == "salary" & .data$Spouse == "Yes"
+          ~ map_dbl(
+            c(
+              NA,
+              .env$Gross_Salary_2_SY_Default(),
+              .env$Gross_Salary_3_SY_Default()
+            ),
+            ~{.x / 12}
+          )
           ),
         Take_Home_Pay_PM = case_when(
-          is.na(.data$Wage_P) & is.na(.data$Hours_PW)
+          # is.na(.data$Wage_P) & is.na(.data$Hours_PW)
+          .data$Income_Format == "pay stub"
           ~ c(
             .env$input$Take_Home_Pay_1_PM,
             .env$Take_Home_Pay_2_PM_Default(),
             .env$Take_Home_Pay_3_PM_Default()
             ),
-          !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
+          .data$Income_Format == "wage" | .data$Income_Format == "salary"
+          # !is.na(.data$Wage_P) & !is.na(.data$Hours_PW)
           ~ map_dbl( # map function on account of if statements to handle vector inputs
             .data$Gross_Income_PM * 12, # Annualizing the monthly gross income
             Take_Home_Pay_Formula
             )
           ),
         Take_Home_Pay_SM = case_when(
-          is.na(.data$Wage_S) & is.na(.data$Hours_SW) & .data$Spouse == "Yes"
+          .data$Income_Format == "pay stub" & .data$Spouse == "Yes"
           ~ c(
             .env$input$Take_Home_Pay_1_SM,
             .env$Take_Home_Pay_2_SM_Default(),
             .env$Take_Home_Pay_3_SM_Default()
             ),
-          !is.na(.data$Wage_S) & !is.na(.data$Hours_SW)
+          (.data$Income_Format == "wage" | .data$Income_Format == "salary") & .data$Spouse == "Yes"
           ~ map_dbl(
             .data$Gross_Income_SM * 12,
             Take_Home_Pay_Formula
