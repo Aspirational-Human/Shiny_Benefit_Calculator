@@ -200,6 +200,11 @@ Primary_Color <- "#2039FF"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
+Scenario_Borders <- c(
+  "solid",
+  "dashed",
+  "dotted"
+)
 
 # Income Functions ----
 
@@ -438,7 +443,8 @@ custom_theme <- bs_theme(preset = "shiny") %>%
      # "warning" = "#c10000",
      "info" = Scenario_1_Color,
      "light" = Scenario_2_Color,
-     "dark" = Scenario_3_Color
+     "dark" = Scenario_3_Color,
+     "green" = "#d3f7c6"
   #   #"gray-100" = "#B0FB89"
   #   # "$gray-200" = "#FB89B0",
   #   # "$gray-300" = "#89B0FB",
@@ -675,13 +681,25 @@ ui <- fluidPage(
                  width = NULL,
                  style = css(grid_template_columns = "28% 35% 35%"),
                  # Scenario 1 Card.
-                 card(card_title("Scenario 1 - Current Situation"),
-                      class = "bg-info",
+                 card(card_title("Scenario 1 - Your Current Situation"),
+                      class = "bg-green",
                       htmlOutput("Scen_1_Descript")
                       ),
                  # Scenario 2 Card.
-                 card(card_title("Scenario 2"),
-                      class = "bg-light",
+                 card(card_title(textOutput("Scen_2_Descript")),
+                      class = "bg-green",
+                      textInput(
+                        "Scen_2_Title",
+                        label = tooltip(
+                          trigger = list(
+                            "Description of Scenario 2",
+                            Help_Icon("Info about changing Scenario 2 description")
+                          ),
+                          "You can change the description of Scenario 2 to match the employment situation you want to calculate",
+                          placement = "top"
+                        ),
+                        value = "Part-time Work at Minimum Wage"
+                      ),
                       radioButtons(
                         "Format_2",
                         "Prefered income format",
@@ -716,8 +734,20 @@ ui <- fluidPage(
                       uiOutput("Scen_2_Parameters")
                     ),
                  # Scenario 3 Card.
-                 card(card_title("Scenario 3"),
-                      class = "bg-dark",
+                 card(card_title(textOutput("Scen_3_Descript")),
+                      class = "bg-green",
+                      textInput(
+                        "Scen_3_Title",
+                        label = tooltip(
+                          trigger = list(
+                            "Description of Scenario 3",
+                            Help_Icon("Info about changing Scenario 3 description")
+                          ),
+                          "You can change the description of Scenario 3 to match the employment situation you want to calculate",
+                          placement = "top"
+                        ),
+                        value = "Full-time Work at Minimum Wage"
+                      ),
                       radioButtons(
                         "Format_3",
                         "Prefered income format",
@@ -762,12 +792,12 @@ ui <- fluidPage(
                  #                               )
                  #                    )
                  tableOutput("Income_Table"),
-                 textOutput("Gross_Output_1_PM"),
-                 textOutput("Gross_Output_2_PM"),
-                 textOutput("Gross_Output_3_PM"),
-                 textOutput("Gross_Output_1_SM"),
-                 textOutput("Gross_output_2_SM"),
-                 textOutput("Gross_output_3_SM")
+                 # textOutput("Gross_Output_1_PM"),
+                 # textOutput("Gross_Output_2_PM"),
+                 # textOutput("Gross_Output_3_PM"),
+                 # textOutput("Gross_Output_1_SM"),
+                 # textOutput("Gross_output_2_SM"),
+                 # textOutput("Gross_output_3_SM")
                       )
                       )
              ),
@@ -882,6 +912,14 @@ server <- function(input, output, session) {
       ".", 
       "</ul>You can return to the <strong>About Me</strong> tab if you would like to change the work income for Scenario 1."
       )
+  })
+  
+  # Titles of cards 2 and 3 supplied by user.
+  output$Scen_2_Descript <- renderText({
+    paste("Scenario 2 -", input$Scen_2_Title)
+  })
+  output$Scen_3_Descript <- renderText({
+    paste("Scenario 3 -", input$Scen_3_Title)
   })
   
   # Dynamically sized Scenario 2 card elements to accommodate spouse items.
