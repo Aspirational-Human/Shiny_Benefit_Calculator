@@ -1,8 +1,5 @@
 ## Task for tomorrow:
-# Add annual salary input
-  # Check UI for salary
-  # Create default values to avoid render errors
-  # Write mutate commands to add to tibble
+# Fix SA reduction formula
 
 
 
@@ -160,7 +157,45 @@ CAIP_Children <- 122
 CAIP_First_Child_Single_Parent <- 244
 CAIP_Rural_Supplement <- .1
 
-# UI constants ----
+# Ontario Works constants --------------------------------------------------
+# OW clients who are parents to one or more dependents under the age of 18 and who do not have a spouse in their benefit unit receive a monthly sole support parent supplement.
+OW_Sole_Parent_Supplement <- 17
+# Creating parameter used for determining benefit units' basic needs for every additional dependent beyond the MCCSS provided look-up tables.
+OW_Additional_Dep_Basic_Need <- 175
+# Creating OW advanced age allowance as a constant.
+OW_Advanced_Age_Allowance <- 44
+# Unlicenced childcare allowance is capped at $600 per child per month for both OW & ODSP
+Unlicenced_Childcare_Cap <- 600
+# Licenced childcare costs have no cap. To estimate childcare costs for clients who have children but do not currently report childcare costs, we can take an average childcare cost from other clients. For now this parameter serves as a placeholder for that average.
+Avg_SAMS_licensed_Childcare_cost <- 875
+# Creating remote allowance parameter for determining benefit units' remote allowance when dependents exceed the number listed in MCCSS's provided look-up tables. This same value is used for both OW and ODSP.
+Additional_Dep_Remote_Allowance <- 102
+# Creating flat earnings exemption parameter for OW clients.
+OW_Flat_Earning_Exemption <- 200
+# Creating earnings exemption rate parameter for income greater than flat rate exemption.
+OW_Earning_Exemption_Rate <- .5
+# Creating a parameter for Rent Geared to Income's relationship to household income.
+RGI_Rate <- .3
+# Net income is exempt for both RGI applicants and their spouse up to this amount per person according to O.Reg 316/19.
+RGI_Income_Exemption <- 75
+
+# ODSP constants ---------------------------------------------------------------
+# Sole Support parent supplement parameter.
+ODSP_Sole_Parent_Supplement <- 143
+# Creating parameter used for determining benefit units' basic needs for every additional dependent beyond the MCCSS provided look-up tables. Inflation adjusted for 01 July, 2024.
+ODSP_Additional_Dep_Basic_Need <- 248
+# Creating parameter used for double disabled benefit units' shelter allowance. Inflation adjusted for 01 July, 2024.
+Double_Disabled_Shelter_Supplement <- 85
+# Creating parameter used to cap double disabled benefit units' basic need and shelter allowances. Inflation adjusted for 01 July, 2024.
+Double_Disabled_Cap <- 2305
+# Creating flat earnings exemption parameter for disabled ODSP clients (non-disabled ODSP BU members receive OW earnings exemption).
+ODSP_Flat_Earning_Exemption <- 1000
+# Creating earnings exemption rate parametr for income greater than flat rate exemption.
+ODSP_Earning_Exemption_Rate <- .25
+# Every adult member of an ODSP benefit unit receives a work-related benefit for every month they report earnings.
+ODSP_Work_Related_Benefit <- 100
+
+# UI constants -----------------------------------------------------------------
 Primary_Color <- "#2039FF"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
@@ -365,9 +400,25 @@ Take_Home_To_Gross_Formula <- function(Take_Home_Pay_M) {
 }
 
 # Social Assistance Functions -------------------------------
-# SA_Reduction_Formula <- function(Take_Home_Pay_M, Disability) {
-#   if ()
-# }
+SA_Reduction_Formula <- function(Take_Home_Pay_M, Disability) {
+  if (is.na(Take_Home_Pay_M) | is.na(Disability)) {
+    0
+  } else {
+    if (Disability == "Yes") {
+      Flat_Earnings_Exemption <- ODSP_Flat_Earning_Exemption
+      Earning_Exemption_Rate <- ODSP_Earning_Exemption_Rate
+    } else if (Disability == "No") {
+      Flat_Earnings_Exemption <- OW_Flat_Earning_Exemption
+      Earning_Exemption_Rate <- OW_Earning_Exemption_Rate
+    }
+    Partial_Earnings_Exemption <- ((Take_Home_Pay_M - Flat_Earnings_Exemption) * Earning_Exemption_Rate) %>%
+      pmax(0)
+    SA_Reduction <- (Take_Home_Pay_M - Flat_Earnings_Exemption - Partial_Earnings_Exemption) %>%
+      pmax(0)
+    return(SA_Reduction)
+  } 
+}
+
 
 # UI functions ----
 Help_Icon <- function(AODA_Title) {
@@ -1141,20 +1192,16 @@ server <- function(input, output, session) {
     Default_Scenarios %>%
       mutate(
         Program = .env$input$Program,
-        SA_Pay_BM = c(
-          .env$input$SA_Payment,
-          NA,
-          NA
-          ),
-        Spouse = case_when(
-          .env$input$Spouse == "Yes"
-          ~ "Yes",
-          .env$input$Spouse == "No"
-          ~ "No"
+        Spouse = .env$input$Spouse,
+        Disability_P = case_when(
+          .data$Program == "ODSP"
+          ~ .env$input$Disability_P,
+          .default = "No"
         ),
-        # Disability_P = case_when(
-        #   .env$input$Program == "Ontario Disability Support Program (ODSP)"
-        # )
+        Disability_S = case_when(
+          .data$Spouse == "Yes"
+          ~ .env$input$Disability_S
+          ), 
         Income_Format = c(
           "pay stub",
           case_when(
@@ -1304,10 +1351,25 @@ server <- function(input, output, session) {
             .data$Gross_Income_SM * 12,
             Take_Home_Pay_Formula
             )
-          )
+          ),
+        Unreduced_SA_Pay = .env$input$SA_Payment + SA_Reduction_Formula(
+          .env$input$Take_Home_Pay_1_PM, .data$Disability_P[1] # reduction in SA payment due to principal's earnings
+        ) + SA_Reduction_Formula(
+          .env$input$Take_Home_Pay_1_SM, .data$Disability_S[1] # reduction in SA payment due to spouse's earnings
+        ),
+        Reduced_SA_Pay_BM = (.data$Unreduced_SA_Pay - map2_dbl(
+          .data$Take_Home_Pay_PM,
+          .data$Disability_P,
+          SA_Reduction_Formula
+        ) - map2_dbl(
+          .data$Take_Home_Pay_SM,
+          .data$Disability_S,
+          SA_Reduction_Formula
+        )
+        ) %>%
+          pmax(0)
         )
     })
-
   
   output$Income_Table <- renderTable( {
     Income_Tibble()
