@@ -670,9 +670,11 @@ ui <- fluidPage(
              # fluidPage(
                h2("Work Scenarios"),
                HTML(paste0("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
+                    <br>
+                    <br>
                     <ul>
                     <li><span style='background-color:", Scenario_1_Color, ";'><strong>Scenario 1</strong></span> has been set to your current situation.</li>
-                    <li><span style='background-color:", Scenario_2_Color, ";'><strong>Scenario 2</strong></span> has been set to part-time employment at minimum wage.</li>
+                    <li><span style='background-color:", Scenario_2_Color, ";'><strong>Scenario 2</strong></span> has been set to part-time employment at minimum wage ($17.20 an hour).</li>
                     <li><span style='background-color:", Scenario_3_Color, ";'><strong>Scenario 3</strong></span> has been set to full-time employment at minimum wage.</li>
                     </ul>"
                     )
@@ -681,13 +683,15 @@ ui <- fluidPage(
                  width = NULL,
                  style = css(grid_template_columns = "28% 35% 35%"),
                  # Scenario 1 Card.
-                 card(card_title("Scenario 1 - Your Current Situation"),
+                 card(card_title(HTML("<strong>Scenario 1</strong> - Your Current Situation")),
                       class = "bg-green",
+                      style = "border: 2px solid",
                       htmlOutput("Scen_1_Descript")
                       ),
                  # Scenario 2 Card.
-                 card(card_title(textOutput("Scen_2_Descript")),
+                 card(card_title(htmlOutput("Scen_2_Descript")),
                       class = "bg-green",
+                      style = "border: 2px dashed",
                       textInput(
                         "Scen_2_Title",
                         label = tooltip(
@@ -698,7 +702,7 @@ ui <- fluidPage(
                           "You can change the description of Scenario 2 to match the employment situation you want to calculate",
                           placement = "top"
                         ),
-                        value = "Part-time Work at Minimum Wage"
+                        value = "Work Part-time at Minimum Wage"
                       ),
                       radioButtons(
                         "Format_2",
@@ -734,8 +738,9 @@ ui <- fluidPage(
                       uiOutput("Scen_2_Parameters")
                     ),
                  # Scenario 3 Card.
-                 card(card_title(textOutput("Scen_3_Descript")),
+                 card(card_title(htmlOutput("Scen_3_Descript")),
                       class = "bg-green",
+                      style = "border: 2px dotted",
                       textInput(
                         "Scen_3_Title",
                         label = tooltip(
@@ -746,7 +751,7 @@ ui <- fluidPage(
                           "You can change the description of Scenario 3 to match the employment situation you want to calculate",
                           placement = "top"
                         ),
-                        value = "Full-time Work at Minimum Wage"
+                        value = "Work Full-time at Minimum Wage"
                       ),
                       radioButtons(
                         "Format_3",
@@ -783,15 +788,23 @@ ui <- fluidPage(
                     )
                  )
              ),
-    # Income results tab -----
+    # Income results tab -----------------------------------------------------
+    
     tabPanel("Income Results",
+             layout_column_wrap(
+               plotOutput("Income_Plot")
+              )
+             ),
+    
+    # Data Validation tab -----------------------------------------------------
+    tabPanel("Data Validation",
              fluidRow(
                column(
                  9,
                  # withSpinner(plotOutput("Income_Plot"
                  #                               )
                  #                    )
-                 tableOutput("Income_Table"),
+                 tableOutput("Income_Table")
                  # textOutput("Gross_Output_1_PM"),
                  # textOutput("Gross_Output_2_PM"),
                  # textOutput("Gross_Output_3_PM"),
@@ -818,6 +831,7 @@ server <- function(input, output, session) {
   # enabling validation error messages
   IV <- InputValidator$new()
   IV$add_rule("Program", sv_required())
+  IV$add_rule("Program", ~ if (. == "social assistance") "Required")
   IV$add_rule("SA_Payment", sv_required())
   IV$add_rule("Spouse", sv_required())
   
@@ -916,10 +930,10 @@ server <- function(input, output, session) {
   
   # Titles of cards 2 and 3 supplied by user.
   output$Scen_2_Descript <- renderText({
-    paste("Scenario 2 -", input$Scen_2_Title)
+    paste("<strong>Scenario 2</strong> -", input$Scen_2_Title)
   })
   output$Scen_3_Descript <- renderText({
-    paste("Scenario 3 -", input$Scen_3_Title)
+    paste("<strong>Scenario 3</strong> -", input$Scen_3_Title)
   })
   
   # Dynamically sized Scenario 2 card elements to accommodate spouse items.
@@ -1164,8 +1178,50 @@ server <- function(input, output, session) {
   })
 
   
-  # Income results tab server ---------------
+  # Income results tab server -------------------------------------------------
   
+  output$Income_Plot <- renderPlot({
+    Plot_Data <- Income_Tibble() %>%
+      select(
+        .data$Scenario,
+        .data$Reduced_SA_Pay_BM,
+        .data$Take_Home_Pay_BM,
+      ) %>%
+      rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
+        A_Take_Home_Pay_BM = .data$Take_Home_Pay_BM,
+        Z_Reduced_SA_Pay_BM = .data$Reduced_SA_Pay_BM
+      ) %>%
+      pivot_longer(
+        !.data$Scenario,
+        names_to = "Income_Source",
+        values_to = "Income"
+      ) %>%
+      mutate(
+        Scenario = factor(.data$Scenario, levels = c( # putting the scenarios in the correct order
+          "Your Current Situation",
+          .env$input$Scen_2_Title,
+          .env$input$Scen_3_Title
+        ))
+          )
+    ggplot(
+      Plot_Data, 
+      aes(x = Scenario, y = Income, fill = Income_Source)
+      ) +
+      geom_col(aes(linetype = Scenario),
+               color = "black",
+               size = 1
+      ) +
+      scale_fill_discrete(labels = c(
+        "Take-home pay from work",
+        paste(input$Program, "payment")
+        )
+      ) +
+      scale_linetype_manual(values = Scenario_Borders)
+    # scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
+  }, res = 96
+  )
+  
+  # Data processing server ----------------------------------------------------
   # Setting up a default values so that unrendered inputs from the work scenarios page don't throw errors
   Take_Home_Pay_2_PM_Default <- reactiveVal(Part_Time_Take_Home_Pay)
   # Making it possible to update the default value when rendered
@@ -1224,10 +1280,13 @@ server <- function(input, output, session) {
     IV$enable()
     # Do not perform the output until all the input is available.
     req(IV$is_valid())
-    Default_Scenarios <- tibble(
-      Scenario = c("Scenario 1", "Scenario 2", "Scenario 3")
+    Scenarios <- tibble(
+      Scenario = c(
+        "Your Current Situation",
+        .env$input$Scen_2_Title,
+        .env$input$Scen_3_Title)
     )
-    Default_Scenarios %>%
+    Calculated_Scenarios <- Scenarios %>% # Extended mutate command to calculate all of the variables needed for the plot.
       mutate(
         Program = .env$input$Program,
         Spouse = .env$input$Spouse,
@@ -1407,17 +1466,30 @@ server <- function(input, output, session) {
         ) %>%
           pmax(0)
         )
+    Calculated_Scenarios <- Calculated_Scenarios %>%
+      rowwise() %>%
+      mutate(
+        Take_Home_Pay_BM = sum(
+          .data$Take_Home_Pay_PM,
+          .data$Take_Home_Pay_SM,
+          na.rm = TRUE
+        )
+      )
+    Calculated_Scenarios # uncomment the below to see the exact data the plot uses
+      # select( 
+      #   .data$Scenario,
+      #   .data$Take_Home_Pay_BM,
+      #   .data$Reduced_SA_Pay_BM
+      # ) %>%
+      # pivot_longer(
+      #   !.data$Scenario,
+      #   names_to = "Income_Source",
+      #   values_to = "Income"
+      # )
     })
   
   output$Income_Table <- renderTable( {
     Income_Tibble()
-    })
-   # output$Income_Plot <- renderPlot({
-   #    ggplot(Income_Tibble(), aes(x = Scenario, y = Calcd_Income, fill = Scenario)) +
-   #      geom_col() +
-   #      scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
-   #  }, res = 96
-   #  )
-
+  })
 }
 shinyApp(ui, server)
