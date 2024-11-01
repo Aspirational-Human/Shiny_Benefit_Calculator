@@ -17,6 +17,7 @@ library(bsplus)
 library(htmltools)
 library(shinythemes)
 library(shinyvalidate)
+library(ggiraph)
 
 # Income constants ----
 # Ontario minimum wage as of October 2024
@@ -200,6 +201,12 @@ Primary_Color <- "#2039FF"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
+Theme_Colours <- c(
+  "#d3f7c6",
+  "#C6EBF7",
+  "#EAC6F7",
+  "#F7D2C6"
+)
 Scenario_Borders <- c(
   "solid",
   "dashed",
@@ -444,7 +451,10 @@ custom_theme <- bs_theme(preset = "shiny") %>%
      "info" = Scenario_1_Color,
      "light" = Scenario_2_Color,
      "dark" = Scenario_3_Color,
-     "green" = "#d3f7c6"
+     "green" = "#d3f7c6",
+     "blue" = "#C6EBF7",
+     "purple" = "#EAC6F7",
+     "brown" = "#F7D2C6"
   #   #"gray-100" = "#B0FB89"
   #   # "$gray-200" = "#FB89B0",
   #   # "$gray-300" = "#89B0FB",
@@ -456,7 +466,7 @@ custom_theme <- bs_theme(preset = "shiny") %>%
   #   # "$gray-900" = "#89B0FB"
   )
 
-ui <- fluidPage(
+ui <- page_fluid(
   # Setting the look and feel of the app.
   theme = custom_theme,
   # Setting up the ability to provide dynamic user feedback.
@@ -792,7 +802,16 @@ ui <- fluidPage(
     
     tabPanel("Income Results",
              layout_column_wrap(
-               plotOutput("Income_Plot")
+               card(
+                 card_header("Comparing Total Income Across Scenarios"),
+                 withSpinner(
+                   girafeOutput(
+                     "Income_Plot",
+                     height = "50vh",
+                     width = "100vw"
+                     ) 
+                 )
+               )
               )
              ),
     
@@ -1180,46 +1199,117 @@ server <- function(input, output, session) {
   
   # Income results tab server -------------------------------------------------
   
-  output$Income_Plot <- renderPlot({
+  output$Income_Plot <- renderGirafe({
     Plot_Data <- Income_Tibble() %>%
       select(
-        .data$Scenario,
-        .data$Reduced_SA_Pay_BM,
-        .data$Take_Home_Pay_BM,
+        Scenario,
+        Reduced_SA_Pay_BM,
+        Take_Home_Pay_BM,
       ) %>%
       rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
-        A_Take_Home_Pay_BM = .data$Take_Home_Pay_BM,
-        Z_Reduced_SA_Pay_BM = .data$Reduced_SA_Pay_BM
+        A_Take_Home_Pay_BM = Take_Home_Pay_BM,
+        Z_Reduced_SA_Pay_BM = Reduced_SA_Pay_BM
       ) %>%
       pivot_longer(
-        !.data$Scenario,
+        !Scenario,
         names_to = "Income_Source",
         values_to = "Income"
       ) %>%
       mutate(
-        Scenario = factor(.data$Scenario, levels = c( # putting the scenarios in the correct order
+        Scenario = factor(Scenario, levels = c( # putting the scenarios in the correct order
           "Your Current Situation",
           .env$input$Scen_2_Title,
           .env$input$Scen_3_Title
         ))
-          )
-    ggplot(
+      )
+    
+    Plot <- ggplot(
       Plot_Data, 
       aes(x = Scenario, y = Income, fill = Income_Source)
       ) +
-      geom_col(aes(linetype = Scenario),
+      geom_col_interactive(aes(
+        linetype = Scenario,
+        tooltip = paste0(
+          "<strong>$",
+          round(Income),
+          "</strong> \n",
+          Income_Source
+          )
+        ),
                color = "black",
-               size = 1
+               size = 1,
+               position = "stack"
       ) +
-      scale_fill_discrete(labels = c(
-        "Take-home pay from work",
-        paste(input$Program, "payment")
+      theme_minimal() +
+      scale_linetype_manual(values = Scenario_Borders) +
+      guides(linetype = FALSE) +
+      scale_fill_manual(
+        values = Theme_Colours,
+        labels = c(
+          "Take-home pay from work",
+          paste(input$Program, "payment")
         )
-      ) +
-      scale_linetype_manual(values = Scenario_Borders)
-    # scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
-  }, res = 96
-  )
+      ) 
+      # scale_fill_discrete(
+      #   labels = c(
+      #     "Take-home pay from work",
+      #     paste(input$Program, "payment")
+      #     ),
+      #   values = Theme_Colours
+      # )
+    
+    girafe(
+      ggobj = Plot,
+      width_svg = 12,
+      # height_svg = 5,
+      options = list(
+        opts_hover(css = "fill:red;"),
+        opts_tooltip(css = "background-color: white; color: black; padding: 5px;")
+        # opts_sizing(rescale = TRUE, width = 1)
+      )
+    )
+  })
+  
+  # output$Income_Plot <- renderPlot({
+  #   Plot_Data <- Income_Tibble() %>%
+  #     select(
+  #       .data$Scenario,
+  #       .data$Reduced_SA_Pay_BM,
+  #       .data$Take_Home_Pay_BM,
+  #     ) %>%
+  #     rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
+  #       A_Take_Home_Pay_BM = .data$Take_Home_Pay_BM,
+  #       Z_Reduced_SA_Pay_BM = .data$Reduced_SA_Pay_BM
+  #     ) %>%
+  #     pivot_longer(
+  #       !.data$Scenario,
+  #       names_to = "Income_Source",
+  #       values_to = "Income"
+  #     ) %>%
+  #     mutate(
+  #       Scenario = factor(.data$Scenario, levels = c( # putting the scenarios in the correct order
+  #         "Your Current Situation",
+  #         .env$input$Scen_2_Title,
+  #         .env$input$Scen_3_Title
+  #       ))
+  #         )
+  #   ggplot(
+  #     Plot_Data, 
+  #     aes(x = Scenario, y = Income, fill = Income_Source)
+  #     ) +
+  #     geom_col(aes(linetype = Scenario),
+  #              color = "black",
+  #              size = 1
+  #     ) +
+  #     scale_fill_discrete(labels = c(
+  #       "Take-home pay from work",
+  #       paste(input$Program, "payment")
+  #       )
+  #     ) +
+  #     scale_linetype_manual(values = Scenario_Borders)
+  #   # scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
+  # }, res = 96
+  # )
   
   # Data processing server ----------------------------------------------------
   # Setting up a default values so that unrendered inputs from the work scenarios page don't throw errors
