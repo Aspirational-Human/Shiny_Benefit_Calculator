@@ -1,5 +1,6 @@
 ## Task for tomorrow:
-# Fix SA reduction formula
+# Add patterns to the graph.
+# Create two annual graphs.
 
 
 
@@ -18,6 +19,7 @@ library(htmltools)
 library(shinythemes)
 library(shinyvalidate)
 library(ggiraph)
+library(ggpattern)
 
 # Income constants ----
 # Ontario minimum wage as of October 2024
@@ -198,22 +200,47 @@ ODSP_Work_Related_Benefit <- 100
 
 # UI constants -----------------------------------------------------------------
 Primary_Color <- "#2039FF"
+Light_Green <- "#d3f7c6"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
 Theme_Colours <- c(
-  "#d3f7c6",
+  Light_Green,
   "#C6EBF7",
   "#EAC6F7",
   "#F7D2C6"
 )
-Scenario_Borders <- c(
-  "solid",
-  "dashed",
-  "dotted"
+# Custom CSS for scenario fill patterns
+css <- paste0("
+.card.stripe-diagonal {
+  background-image: linear-gradient(45deg, ", Light_Green," 25%, transparent 25%, transparent 50%, ", Light_Green," 50%, ", Light_Green," 75%, transparent 75%, transparent) !important;
+  background-size: 6px 6px !important;
+  background-color: white !important;
+}
+.card.stripe-horizontal {
+  background-image: linear-gradient(0deg, ", Light_Green," 25%, transparent 25%, transparent 50%, ", Light_Green," 50%, ", Light_Green," 75%, transparent 75%, transparent) !important;
+  background-size: 40px 40px !important;
+  background-color: white !important;
+}
+.card.polka {
+  background-image: radial-gradient(", Light_Green," 50%, transparent 16%) !important;
+  background-size: 6px 6px !important;
+  background-color: white !important;
+}
+.text-container {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  padding: 5px;
+  border-radius: 1px;
+  margin: 1px 0;
+}"
 )
+# Scenario_Borders <- c(
+#   "solid",
+#   "dashed",
+#   "dotted"
+# )
 
-# Income Functions ----
+# Income Functions -------------------------------------------------------------
 
 # Calculating gross monthly income from hourly wage and hours per week.
 Wage_To_Gross_Formula <- function(Wage, Hours_W) {
@@ -447,7 +474,7 @@ custom_theme <- bs_theme(preset = "shiny") %>%
   #   # "$secondary" = "#89B0FB",
   #   # "$success" = "#B0FB89",
   #   # "$info" = "#FB89B0",
-     # "warning" = "#c10000",
+     "warning" = "#c10000",
      "info" = Scenario_1_Color,
      "light" = Scenario_2_Color,
      "dark" = Scenario_3_Color,
@@ -467,6 +494,9 @@ custom_theme <- bs_theme(preset = "shiny") %>%
   )
 
 ui <- page_fluid(
+  tags$head(
+    tags$style(css) # this is what makes the custom css available 
+  ),
   # Setting the look and feel of the app.
   theme = custom_theme,
   # Setting up the ability to provide dynamic user feedback.
@@ -695,26 +725,36 @@ ui <- page_fluid(
                  # Scenario 1 Card.
                  card(card_title(HTML("<strong>Scenario 1</strong> - Your Current Situation")),
                       class = "bg-green",
-                      style = "border: 2px solid",
+                      # style = "border: 2px solid",
                       htmlOutput("Scen_1_Descript")
                       ),
                  # Scenario 2 Card.
-                 card(card_title(htmlOutput("Scen_2_Descript")),
-                      class = "bg-green",
-                      style = "border: 2px dashed",
-                      textInput(
-                        "Scen_2_Title",
-                        label = tooltip(
-                          trigger = list(
-                            "Description of Scenario 2",
-                            Help_Icon("Info about changing Scenario 2 description")
+                 card(
+                   class = "stripe-diagonal",
+                   card_title(
+                     class = "text-container",
+                     htmlOutput("Scen_2_Descript")
+                     ),
+                   # style = "border: 2px dashed",
+                   card_body(
+                     div(
+                       class = "text-container",
+                   textInput(
+                     "Scen_2_Title",
+                     label = tooltip(
+                         trigger = list(
+                           "Description of Scenario 2",
+                           Help_Icon("Info about changing Scenario 2 description")
                           ),
-                          "You can change the description of Scenario 2 to match the employment situation you want to calculate",
-                          placement = "top"
-                        ),
-                        value = "Work Part-time at Minimum Wage"
-                      ),
-                      radioButtons(
+                         "You can change the description of Scenario 2 to match the employment situation you want to calculate",
+                         placement = "top"
+                       ),
+                      value = "Work Part-time at Minimum Wage"
+                      )
+                   ),
+                   div(
+                     class = "text-container",
+                   radioButtons(
                         "Format_2",
                         "Prefered income format",
                         choiceValues = c("wage", "pay stub", "salary"),
@@ -744,57 +784,78 @@ ui <- page_fluid(
                             placement = "bottom"
                           )
                         )
-                      ),
-                      uiOutput("Scen_2_Parameters")
+                      )
+                   ),
+                   div(
+                     class = "text-container",
+                      uiOutput(
+                        "Scen_2_Parameters"
+                        )
+                      )
+                   )
                     ),
                  # Scenario 3 Card.
-                 card(card_title(htmlOutput("Scen_3_Descript")),
-                      class = "bg-green",
-                      style = "border: 2px dotted",
-                      textInput(
-                        "Scen_3_Title",
-                        label = tooltip(
-                          trigger = list(
-                            "Description of Scenario 3",
-                            Help_Icon("Info about changing Scenario 3 description")
-                          ),
-                          "You can change the description of Scenario 3 to match the employment situation you want to calculate",
-                          placement = "top"
-                        ),
-                        value = "Work Full-time at Minimum Wage"
-                      ),
-                      radioButtons(
-                        "Format_3",
-                        "Prefered income format",
-                        choiceValues = c("wage", "pay stub", "salary"),
-                        choiceNames = list(
-                          tooltip(
-                            trigger = list(
-                              "Hourly wage",
-                              Help_Icon("Info about hourly wage")
-                            ),
-                            "Enter pay per hour of work and hours worked per week to calculate work earnings for this scenario",
-                            placement = "top"
-                          ),
-                          tooltip(
-                            trigger = list(
-                              "Monthly take-home pay",
-                              Help_Icon("Info about take-home pay")
-                            ),
-                            "Enter monthly pay received from employer after payroll deductions like taxes, EI, and CPP to calculate work earnings for this scenario",
-                            placement = "top"
-                          ),
-                          tooltip(
-                            trigger = list(
-                              "Annual salary",
-                              Help_Icon("Info about annual salary")
-                            ),
-                            "Enter annual salary received from employer before payroll deductions (i.e., yearly pay written on job add or employment contract) to calculate work earnings for this scenario",
-                            placement = "bottom"
-                          )
-                        )
-                      ),
-                      uiOutput("Scen_3_Parameters")
+                 card(
+                   class = "polka",
+                   card_title(
+                     class = "text-container",
+                     htmlOutput("Scen_3_Descript")
+                     ),
+                   card_body(
+                     div(
+                       class = "text-container",
+                       textInput(
+                         "Scen_3_Title",
+                         label = tooltip(
+                           trigger = list(
+                             "Description of Scenario 3",
+                             Help_Icon("Info about changing Scenario 3 description")
+                           ),
+                           "You can change the description of Scenario 3 to match the employment situation you want to calculate",
+                           placement = "top"
+                         ),
+                         value = "Work Full-time at Minimum Wage"
+                       ) 
+                     ),
+                     div(
+                       class = "text-container",
+                       radioButtons(
+                         "Format_3",
+                         "Prefered income format",
+                         choiceValues = c("wage", "pay stub", "salary"),
+                         choiceNames = list(
+                           tooltip(
+                             trigger = list(
+                               "Hourly wage",
+                               Help_Icon("Info about hourly wage")
+                             ),
+                             "Enter pay per hour of work and hours worked per week to calculate work earnings for this scenario",
+                             placement = "top"
+                           ),
+                           tooltip(
+                             trigger = list(
+                               "Monthly take-home pay",
+                               Help_Icon("Info about take-home pay")
+                             ),
+                             "Enter monthly pay received from employer after payroll deductions like taxes, EI, and CPP to calculate work earnings for this scenario",
+                             placement = "top"
+                           ),
+                           tooltip(
+                             trigger = list(
+                               "Annual salary",
+                               Help_Icon("Info about annual salary")
+                             ),
+                             "Enter annual salary received from employer before payroll deductions (i.e., yearly pay written on job add or employment contract) to calculate work earnings for this scenario",
+                             placement = "bottom"
+                           )
+                         )
+                       ) 
+                     ),
+                     div(
+                       class = "text-container",
+                       uiOutput("Scen_3_Parameters") 
+                     )
+                   )
                     )
                  )
              ),
@@ -1228,7 +1289,7 @@ server <- function(input, output, session) {
       aes(x = Scenario, y = Income, fill = Income_Source)
       ) +
       geom_col_interactive(aes(
-        linetype = Scenario,
+        # linetype = Scenario,
         tooltip = paste0(
           "<strong>$",
           round(Income),
@@ -1236,13 +1297,13 @@ server <- function(input, output, session) {
           Income_Source
           )
         ),
-               color = "black",
-               size = 1,
+               # color = "black",
+               # size = 1,
                position = "stack"
       ) +
       theme_minimal() +
-      scale_linetype_manual(values = Scenario_Borders) +
-      guides(linetype = FALSE) +
+      # scale_linetype_manual(values = Scenario_Borders) +
+      # guides(linetype = FALSE) +
       scale_fill_manual(
         values = Theme_Colours,
         labels = c(
@@ -1250,13 +1311,6 @@ server <- function(input, output, session) {
           paste(input$Program, "payment")
         )
       ) 
-      # scale_fill_discrete(
-      #   labels = c(
-      #     "Take-home pay from work",
-      #     paste(input$Program, "payment")
-      #     ),
-      #   values = Theme_Colours
-      # )
     
     girafe(
       ggobj = Plot,
@@ -1269,47 +1323,6 @@ server <- function(input, output, session) {
       )
     )
   })
-  
-  # output$Income_Plot <- renderPlot({
-  #   Plot_Data <- Income_Tibble() %>%
-  #     select(
-  #       .data$Scenario,
-  #       .data$Reduced_SA_Pay_BM,
-  #       .data$Take_Home_Pay_BM,
-  #     ) %>%
-  #     rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
-  #       A_Take_Home_Pay_BM = .data$Take_Home_Pay_BM,
-  #       Z_Reduced_SA_Pay_BM = .data$Reduced_SA_Pay_BM
-  #     ) %>%
-  #     pivot_longer(
-  #       !.data$Scenario,
-  #       names_to = "Income_Source",
-  #       values_to = "Income"
-  #     ) %>%
-  #     mutate(
-  #       Scenario = factor(.data$Scenario, levels = c( # putting the scenarios in the correct order
-  #         "Your Current Situation",
-  #         .env$input$Scen_2_Title,
-  #         .env$input$Scen_3_Title
-  #       ))
-  #         )
-  #   ggplot(
-  #     Plot_Data, 
-  #     aes(x = Scenario, y = Income, fill = Income_Source)
-  #     ) +
-  #     geom_col(aes(linetype = Scenario),
-  #              color = "black",
-  #              size = 1
-  #     ) +
-  #     scale_fill_discrete(labels = c(
-  #       "Take-home pay from work",
-  #       paste(input$Program, "payment")
-  #       )
-  #     ) +
-  #     scale_linetype_manual(values = Scenario_Borders)
-  #   # scale_fill_manual(values = c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color))
-  # }, res = 96
-  # )
   
   # Data processing server ----------------------------------------------------
   # Setting up a default values so that unrendered inputs from the work scenarios page don't throw errors
