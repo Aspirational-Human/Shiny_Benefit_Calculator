@@ -1,6 +1,7 @@
 ## Task for tomorrow:
 # Add patterns to the graph.
-# Create two annual graphs.
+# Move data reformatting to the data processing section so it can be referenced by all graphs.
+# Create two annual graphs, one summary and one month-by-month.
 
 
 
@@ -18,8 +19,9 @@ library(bsplus)
 library(htmltools)
 library(shinythemes)
 library(shinyvalidate)
-library(ggiraph)
-library(ggpattern)
+library(plotly)
+# library(ggiraph)
+# library(ggpattern)
 
 # Income constants ----
 # Ontario minimum wage as of October 2024
@@ -201,44 +203,49 @@ ODSP_Work_Related_Benefit <- 100
 # UI constants -----------------------------------------------------------------
 Primary_Color <- "#2039FF"
 Light_Green <- "#d3f7c6"
+Light_Blue <- "#C6EBF7"
+Light_Purple <- "#EAC6F7"
+Light_Brown <- "#F7D2C6"
+Light_Grey <- "#f2f2f2"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
 Theme_Colours <- c(
   Light_Green,
-  "#C6EBF7",
-  "#EAC6F7",
-  "#F7D2C6"
+  Light_Blue,
+  Light_Purple,
+  Light_Brown
 )
 # Custom CSS for scenario fill patterns
-css <- paste0("
-.card.stripe-diagonal {
-  background-image: linear-gradient(45deg, ", Light_Green," 25%, transparent 25%, transparent 50%, ", Light_Green," 50%, ", Light_Green," 75%, transparent 75%, transparent) !important;
-  background-size: 6px 6px !important;
-  background-color: white !important;
-}
-.card.stripe-horizontal {
-  background-image: linear-gradient(0deg, ", Light_Green," 25%, transparent 25%, transparent 50%, ", Light_Green," 50%, ", Light_Green," 75%, transparent 75%, transparent) !important;
-  background-size: 40px 40px !important;
-  background-color: white !important;
-}
-.card.polka {
-  background-image: radial-gradient(", Light_Green," 50%, transparent 16%) !important;
-  background-size: 6px 6px !important;
-  background-color: white !important;
-}
-.text-container {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  padding: 5px;
-  border-radius: 1px;
-  margin: 1px 0;
-}"
-)
-# Scenario_Borders <- c(
-#   "solid",
-#   "dashed",
-#   "dotted"
-# )
+css <- HTML(sprintf('
+  /* SVG Patterns */
+  .solid-card {
+    background-color: %s !important;
+  }
+  .stripe-card {
+    background-color: %s !important;
+    background-image: url("data:image/svg+xml;base64,%s") !important;
+    background-size: 12px 12px !important;
+  }
+  .dot-card {
+    background-color: %s !important;
+    background-image: url("data:image/svg+xml;base64,%s") !important;
+    background-size: 8px 8px !important;
+  }
+  .input-container {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 4px;
+    margin: 5px 0;
+  }
+',
+                    Light_Green,
+                    Light_Green,
+                    base64enc::base64encode(charToRaw(sprintf('<svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><rect width="12" height="12" fill="%s"/><line x1="0" y1="0" x2="12" y2="12" stroke="%s" stroke-width="3"/></svg>', Light_Green, Light_Grey))),
+                    Light_Green,
+                    base64enc::base64encode(charToRaw(sprintf('<svg width="8" height="8" viewBox="0 0 8 8" xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8" fill="%s"/><circle cx="4" cy="4" r="1.5" fill="%s"/></svg>', Light_Green, Light_Grey)))
+))
+
 
 # Income Functions -------------------------------------------------------------
 
@@ -866,8 +873,8 @@ ui <- page_fluid(
                card(
                  card_header("Comparing Total Income Across Scenarios"),
                  withSpinner(
-                   girafeOutput(
-                     "Income_Plot",
+                   plotlyOutput(
+                     "Recurring_Income_Plot_BM",
                      height = "50vh",
                      width = "100vw"
                      ) 
@@ -1260,72 +1267,127 @@ server <- function(input, output, session) {
   
   # Income results tab server -------------------------------------------------
   
-  output$Income_Plot <- renderGirafe({
+  # Creating a named vector associating colours with our income sources
+  Legend_Colors <- reactiveVal( {
+    setNames( # Named vector of our plot labels
+      c(Light_Green, Light_Purple, Light_Blue, Light_Brown),
+      c("Earnings after payroll deductions",
+        "SA payments",
+        "Taxes",
+        "Other Benefits")
+    )
+    })
+  # Creating a dynamic version of the named vector that updates the SA program name
+  Dynamic_Legend_Colors <- reactive({
+    LegendColors <- Legend_Colors()
+    names(LegendColors)[2] <- paste(input$Program, "payments")
+    LegendColors
+  })
+  
+  output$Recurring_Income_Plot_BM <- renderPlotly({
+    
+    # Getting the data in shape for plotting
     Plot_Data <- Income_Tibble() %>%
-      select(
+      select( # Reducing the data to just the columns needed
         Scenario,
+        Scenario_Label,
         Reduced_SA_Pay_BM,
         Take_Home_Pay_BM,
       ) %>%
-      rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
-        A_Take_Home_Pay_BM = Take_Home_Pay_BM,
-        Z_Reduced_SA_Pay_BM = Reduced_SA_Pay_BM
+      setNames(c(
+        "Scenario",
+        "Scenario_Label",
+        paste(input$Program, "payments"),
+        "Earnings_after_payroll_deductions"
+        )
       ) %>%
-      pivot_longer(
-        !Scenario,
+      # rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
+      #   Earnings_after_payroll_deductions = Take_Home_Pay_BM,
+      #   !!paste0(input$Program, "_payments") := Reduced_SA_Pay_BM
+      # ) %>%
+      pivot_longer( # stacked plots require long-form data
+        # Do not pivot Scenario and Scenario_Label
+        cols = -c(Scenario, Scenario_Label),
         names_to = "Income_Source",
         values_to = "Income"
       ) %>%
       mutate(
-        Scenario = factor(Scenario, levels = c( # putting the scenarios in the correct order
-          "Your Current Situation",
-          .env$input$Scen_2_Title,
-          .env$input$Scen_3_Title
-        ))
+        # Making human readable plot labels
+        Income_Source = str_replace_all(Income_Source, "_", " ")
       )
+   
+    # Call in our reactive legend colours
+    LegendColors <- Dynamic_Legend_Colors()
     
-    Plot <- ggplot(
-      Plot_Data, 
-      aes(x = Scenario, y = Income, fill = Income_Source)
-      ) +
-      geom_col_interactive(aes(
-        # linetype = Scenario,
-        tooltip = paste0(
-          "<strong>$",
-          round(Income),
-          "</strong> \n",
-          Income_Source
-          )
+    # Initializing the plot
+    Plot <- plot_ly()
+    
+    # Adding traces for each scenario-income_source combination
+    for(Scenario_Idx in 1:3) {
+      # Scenario <- paste("Scenario", Scenario_Idx)
+      
+      # Define pattern fill based on scenario
+      Pattern <- list(
+        shape = switch(Scenario_Idx,
+                       "",    # Scenario 1 has a solid pattern
+                       "\\",  # Scenario 2 has a diagonal line pattern
+                       ".",   # Scenario 3 has a polka dot pattern
         ),
-               # color = "black",
-               # size = 1,
-               position = "stack"
-      ) +
-      theme_minimal() +
-      # scale_linetype_manual(values = Scenario_Borders) +
-      # guides(linetype = FALSE) +
-      scale_fill_manual(
-        values = Theme_Colours,
-        labels = c(
-          "Take-home pay from work",
-          paste(input$Program, "payment")
+        fillmode = "overlay",
+        size = switch(Scenario_Idx,
+                      4,     # Scenario 1: unused
+                      6,     # Scenario 2: stripe size
+                      7      # Scenario 3: dot size
+        ),
+        solidity = switch(Scenario_Idx,
+                          1,    # Scenario 1: solid
+                          0.5,  # Scenario 2: stripes opacity
+                          0.1   # Scenario 3: dots opacity (reduced to make pattern less dense)
+        ),
+        fgcolor = Light_Grey,
+        spacing = switch(Scenario_Idx,
+                         4,    # Scenario 1: not used
+                         4,    # Scenario 2: not used
+                         2     # Scenario 3: increased spacing between dots
         )
-      ) 
-    
-    girafe(
-      ggobj = Plot,
-      width_svg = 12,
-      # height_svg = 5,
-      options = list(
-        opts_hover(css = "fill:red;"),
-        opts_tooltip(css = "background-color: white; color: black; padding: 5px;")
-        # opts_sizing(rescale = TRUE, width = 1)
       )
-    )
+      
+      # Adding each income source for each scenario
+      for (Source in names(LegendColors)[1:2]) { # for the monthly income graph, we are only looking at earnings and SA payments
+        Plot_Data_Trace <- Plot_Data %>%
+          filter(Income_Source == Source, Scenario == !!Scenario_Idx)
+        # Only show legend for the first scenario, since the income sources are the same across scenarios
+        Show_Legend <- Scenario_Idx == 1
+        
+        Plot <- Plot %>%
+          add_trace(
+            data = Plot_Data_Trace,
+            x = ~Scenario_Label,
+            y = ~Income,
+            name = Source,
+            type = "bar",
+            legendgroup = Source,
+            showlegend = Show_Legend,
+            marker = list(
+              color = LegendColors[Source],
+              pattern = Pattern
+            )
+          )
+      }
+    }
+    
+    # Add plot layout
+    Plot %>%
+      layout(
+        barmode = "stack",
+        title = "Monthly Household Income",
+        xaxis = list(title = "Scenarios"),
+        yaxis = list(title = "Income")
+      )
   })
   
   # Data processing server ----------------------------------------------------
-  # Setting up a default values so that unrendered inputs from the work scenarios page don't throw errors
+  # Setting up default values so that unrendered inputs from the work scenarios page don't throw errors
   Take_Home_Pay_2_PM_Default <- reactiveVal(Part_Time_Take_Home_Pay)
   # Making it possible to update the default value when rendered
   observeEvent(input$Take_Home_Pay_2_PM, {
@@ -1384,10 +1446,19 @@ server <- function(input, output, session) {
     # Do not perform the output until all the input is available.
     req(IV$is_valid())
     Scenarios <- tibble(
-      Scenario = c(
-        "Your Current Situation",
-        .env$input$Scen_2_Title,
-        .env$input$Scen_3_Title)
+      Scenario = c(1:3),
+      Scenario_Label = factor( # factor with levels controls order of scenarios in subsequent plots
+        c(
+          "Your Current Situation",
+          .env$input$Scen_2_Title,
+          .env$input$Scen_3_Title
+          ),
+        levels = c(
+          "Your Current Situation",
+          .env$input$Scen_2_Title,
+          .env$input$Scen_3_Title
+        )
+      )
     )
     Calculated_Scenarios <- Scenarios %>% # Extended mutate command to calculate all of the variables needed for the plot.
       mutate(
