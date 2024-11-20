@@ -206,7 +206,7 @@ Light_Green <- "#d3f7c6"
 Light_Blue <- "#C6EBF7"
 Light_Purple <- "#EAC6F7"
 Light_Brown <- "#F7D2C6"
-Light_Grey <- "#f2f2f2"
+Light_Grey <- "#adadad"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
@@ -232,7 +232,7 @@ css <- HTML(sprintf('
     background-image: url("data:image/svg+xml;base64,%s") !important;
     background-size: 8px 8px !important;
   }
-  .input-container {
+  .text-container {
     background-color: rgba(255, 255, 255, 0.9);
     padding: 10px;
     border-radius: 4px;
@@ -731,13 +731,13 @@ ui <- page_fluid(
                  style = css(grid_template_columns = "28% 35% 35%"),
                  # Scenario 1 Card.
                  card(card_title(HTML("<strong>Scenario 1</strong> - Your Current Situation")),
-                      class = "bg-green",
+                      class = "solid-card",
                       # style = "border: 2px solid",
                       htmlOutput("Scen_1_Descript")
                       ),
                  # Scenario 2 Card.
                  card(
-                   class = "stripe-diagonal",
+                   class = "stripe-card",
                    card_title(
                      class = "text-container",
                      htmlOutput("Scen_2_Descript")
@@ -803,7 +803,7 @@ ui <- page_fluid(
                     ),
                  # Scenario 3 Card.
                  card(
-                   class = "polka",
+                   class = "dot-card",
                    card_title(
                      class = "text-container",
                      htmlOutput("Scen_3_Descript")
@@ -874,9 +874,9 @@ ui <- page_fluid(
                  card_header("Comparing Total Income Across Scenarios"),
                  withSpinner(
                    plotlyOutput(
-                     "Recurring_Income_Plot_BM",
-                     height = "50vh",
-                     width = "100vw"
+                     "Recurring_Income_Plot_BM"
+                     # height = "50vh",
+                     # width = "100vw"
                      ) 
                  )
                )
@@ -1315,6 +1315,11 @@ server <- function(input, output, session) {
         # Making human readable plot labels
         Income_Source = str_replace_all(Income_Source, "_", " ")
       )
+    
+    # Calculate totals for each scenario to be added to the top of each column.
+    Totals <- Plot_Data %>%
+      group_by(Scenario_Label) %>%
+      summarise(Total = sum(Income))
    
     # Call in our reactive legend colours
     LegendColors <- Dynamic_Legend_Colors()
@@ -1371,6 +1376,11 @@ server <- function(input, output, session) {
             marker = list(
               color = LegendColors[Source],
               pattern = Pattern
+            ),
+            hovertemplate = paste0(
+              "<b>$%{y:,.0f}</b><br>",
+              Source,
+              "<extra></extra>"
             )
           )
       }
@@ -1381,8 +1391,26 @@ server <- function(input, output, session) {
       layout(
         barmode = "stack",
         title = "Monthly Household Income",
-        xaxis = list(title = "Scenarios"),
-        yaxis = list(title = "Income")
+        xaxis = list(title = "Your Work Scenarios"),
+        yaxis = list(
+          title = "Monthly Income",
+          tickprefix = "$",
+          tickformat = ",.0f"
+          ),
+        annotations = lapply(1:nrow(Totals), function(i) {
+          list(
+            x = Totals$Scenario_Label[i],
+            y = Totals$Total[i],
+            text = paste0("<b>$", format(round(Totals$Total[i]), big.mark = ","), "</b>"),
+            showarrow = FALSE,
+            yshift = 15,  # Adjust this value to position the text higher or lower
+            font = list(size = 14),
+            bgcolor = "white",
+            bordercolor = "white",
+            borderwidth = 2,
+            borderpad = 2
+          )
+        })
       )
   })
   
