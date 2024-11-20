@@ -1286,38 +1286,8 @@ server <- function(input, output, session) {
   
   output$Recurring_Income_Plot_BM <- renderPlotly({
     
-    # Getting the data in shape for plotting
-    Plot_Data <- Income_Tibble() %>%
-      select( # Reducing the data to just the columns needed
-        Scenario,
-        Scenario_Label,
-        Reduced_SA_Pay_BM,
-        Take_Home_Pay_BM,
-      ) %>%
-      setNames(c(
-        "Scenario",
-        "Scenario_Label",
-        paste(input$Program, "payments"),
-        "Earnings_after_payroll_deductions"
-        )
-      ) %>%
-      # rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
-      #   Earnings_after_payroll_deductions = Take_Home_Pay_BM,
-      #   !!paste0(input$Program, "_payments") := Reduced_SA_Pay_BM
-      # ) %>%
-      pivot_longer( # stacked plots require long-form data
-        # Do not pivot Scenario and Scenario_Label
-        cols = -c(Scenario, Scenario_Label),
-        names_to = "Income_Source",
-        values_to = "Income"
-      ) %>%
-      mutate(
-        # Making human readable plot labels
-        Income_Source = str_replace_all(Income_Source, "_", " ")
-      )
-    
     # Calculate totals for each scenario to be added to the top of each column.
-    Totals <- Plot_Data %>%
+    Totals <- Plot_Data() %>%
       group_by(Scenario_Label) %>%
       summarise(Total = sum(Income))
    
@@ -1359,7 +1329,7 @@ server <- function(input, output, session) {
       
       # Adding each income source for each scenario
       for (Source in names(LegendColors)[1:2]) { # for the monthly income graph, we are only looking at earnings and SA payments
-        Plot_Data_Trace <- Plot_Data %>%
+        Plot_Data_Trace <- Plot_Data() %>%
           filter(Income_Source == Source, Scenario == !!Scenario_Idx)
         # Only show legend for the first scenario, since the income sources are the same across scenarios
         Show_Legend <- Scenario_Idx == 1
@@ -1415,6 +1385,7 @@ server <- function(input, output, session) {
   })
   
   # Data processing server ----------------------------------------------------
+  
   # Setting up default values so that unrendered inputs from the work scenarios page don't throw errors
   Take_Home_Pay_2_PM_Default <- reactiveVal(Part_Time_Take_Home_Pay)
   # Making it possible to update the default value when rendered
@@ -1422,6 +1393,7 @@ server <- function(input, output, session) {
     Take_Home_Pay_2_PM_Default(input$Take_Home_Pay_2_PM)
   }, ignoreInit = TRUE, ignoreNULL = TRUE
   )
+  # Reapeating this process for all the work scenario inputs
   Take_Home_Pay_3_PM_Default <- reactiveVal(Full_Time_Take_Home_Pay)
   observeEvent(input$Take_Home_Pay_3_PM, {
     Take_Home_Pay_3_PM_Default(input$Take_Home_Pay_3_PM)
@@ -1690,6 +1662,39 @@ server <- function(input, output, session) {
       # )
     })
   
+  # Getting the data in shape for plotting
+  Plot_Data <- reactive({
+    Income_Tibble() %>%
+      select( # Reducing the data to just the columns needed
+        Scenario,
+        Scenario_Label,
+        Reduced_SA_Pay_BM,
+        Take_Home_Pay_BM,
+      ) %>%
+      setNames(c(
+        "Scenario",
+        "Scenario_Label",
+        paste(input$Program, "payments"),
+        "Earnings_after_payroll_deductions"
+      )
+      ) %>%
+      # rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
+      #   Earnings_after_payroll_deductions = Take_Home_Pay_BM,
+      #   !!paste0(input$Program, "_payments") := Reduced_SA_Pay_BM
+      # ) %>%
+      pivot_longer( # stacked plots require long-form data
+        # Do not pivot Scenario and Scenario_Label
+        cols = -c(Scenario, Scenario_Label),
+        names_to = "Income_Source",
+        values_to = "Income"
+      ) %>%
+      mutate(
+        # Making human readable plot labels
+        Income_Source = str_replace_all(Income_Source, "_", " ")
+      )
+  }) 
+  
+  # Putting the calculated values in a table for viewing while troubleshooting
   output$Income_Table <- renderTable( {
     Income_Tibble()
   })
