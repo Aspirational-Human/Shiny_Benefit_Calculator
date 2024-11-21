@@ -1,6 +1,4 @@
 ## Task for tomorrow:
-# Add patterns to the graph.
-# Move data reformatting to the data processing section so it can be referenced by all graphs.
 # Create two annual graphs, one summary and one month-by-month.
 
 
@@ -867,21 +865,27 @@ ui <- page_fluid(
                  )
              ),
     # Income results tab -----------------------------------------------------
-    
     tabPanel("Income Results",
              layout_column_wrap(
                card(
                  card_header("Comparing Total Income Across Scenarios"),
-                 withSpinner(
-                   plotlyOutput(
-                     "Recurring_Income_Plot_BM"
-                     # height = "50vh",
-                     # width = "100vw"
-                     ) 
+                 card_body(
+                   selectInput(
+                     inputId = "Plot_Choice",
+                     label = "Choose a calculation to display",
+                     choices = c(
+                       "Monthly household income" = "Monthly",
+                       "Total annual household income" = "Annual"
+                     ),
+                     selected = "Monthly"
+                   ),
+                   withSpinner(
+                     plotlyOutput("Selected_Income_Plot")
+                   )
                  )
                )
-              )
-             ),
+             )
+    ),
     
     # Data Validation tab -----------------------------------------------------
     tabPanel("Data Validation",
@@ -1273,8 +1277,8 @@ server <- function(input, output, session) {
       c(Light_Green, Light_Purple, Light_Blue, Light_Brown),
       c("Earnings after payroll deductions",
         "SA payments",
-        "Taxes",
-        "Other Benefits")
+        "Tax refund",
+        "Other benefits")
     )
     })
   # Creating a dynamic version of the named vector that updates the SA program name
@@ -1284,12 +1288,24 @@ server <- function(input, output, session) {
     LegendColors
   })
   
-  output$Recurring_Income_Plot_BM <- renderPlotly({
+  output$Selected_Income_Plot <- renderPlotly({
     
-    # Calculate totals for each scenario to be added to the top of each column.
-    Totals <- Plot_Data() %>%
+    # Modify the plot data to match the requested view
+    if (input$Plot_Choice == "Monthly") {
+      Selected_Plot_Data <- Plot_Data() %>%
+        filter(Income_Source != "Tax refund") # Tax refund is not shown on the monthly income plot because the refund does not occur monthly
+    } else if (input$Plot_Choice == "Annual") {
+      Selected_Plot_Data <- Plot_Data() %>%
+        mutate(Income = Income * 12)
+    }
+    
+    # Calculate total income for each scenario to be added to the top of each column.
+    Totals <- Selected_Plot_Data %>%
       group_by(Scenario_Label) %>%
       summarise(Total = sum(Income))
+    
+    # Count the number of income sources in the data
+    Income_Sources <- length(unique(Selected_Plot_Data$Income_Source))
    
     # Call in our reactive legend colours
     LegendColors <- Dynamic_Legend_Colors()
@@ -1328,8 +1344,8 @@ server <- function(input, output, session) {
       )
       
       # Adding each income source for each scenario
-      for (Source in names(LegendColors)[1:2]) { # for the monthly income graph, we are only looking at earnings and SA payments
-        Plot_Data_Trace <- Plot_Data() %>%
+      for (Source in names(LegendColors)[1:Income_Sources]) {
+        Plot_Data_Trace <- Selected_Plot_Data %>%
           filter(Income_Source == Source, Scenario == !!Scenario_Idx)
         # Only show legend for the first scenario, since the income sources are the same across scenarios
         Show_Legend <- Scenario_Idx == 1
@@ -1360,7 +1376,7 @@ server <- function(input, output, session) {
     Plot %>%
       layout(
         barmode = "stack",
-        title = "Monthly Household Income",
+        title = input$Plot_Choice,
         xaxis = list(title = "Your Work Scenarios"),
         yaxis = list(
           title = "Monthly Income",
@@ -1665,23 +1681,37 @@ server <- function(input, output, session) {
   # Getting the data in shape for plotting
   Plot_Data <- reactive({
     Income_Tibble() %>%
+      mutate(
+        Tax_Refund_PY = map_dbl( # This is a placeholder for the purpose of building prototype plots and must be REPLACED once all income tax formulas are written.
+          Gross_Income_PM * 12,
+          Tax_Deduct_Formula
+        ),
+        Tax_Refund_SY = map_dbl( # REPLACE
+          Gross_Income_SM * 12,
+          Tax_Deduct_Formula
+        ),
+        # sum Tax_Refund_PY and Tax_Refund_SY, accounting for the fact that Tax_Refund_SY may be NA
+        Tax_Refund_BM = (Tax_Refund_PY + coalesce(Tax_Refund_SY, 0)) / 12
+      ) %>%
       select( # Reducing the data to just the columns needed
         Scenario,
         Scenario_Label,
         Reduced_SA_Pay_BM,
         Take_Home_Pay_BM,
+        Tax_Refund_BM
       ) %>%
-      setNames(c(
-        "Scenario",
-        "Scenario_Label",
-        paste(input$Program, "payments"),
-        "Earnings_after_payroll_deductions"
-      )
-      ) %>%
-      # rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
-      #   Earnings_after_payroll_deductions = Take_Home_Pay_BM,
-      #   !!paste0(input$Program, "_payments") := Reduced_SA_Pay_BM
+      # setNames(c(
+      #   "Scenario",
+      #   "Scenario_Label",
+      #   paste(input$Program, "_payments"),
+      #   "Earnings_after_payroll_deductions"
+      # )
       # ) %>%
+      rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
+        Earnings_after_payroll_deductions = Take_Home_Pay_BM,
+        !!paste0(input$Program, "_payments") := Reduced_SA_Pay_BM,
+        Tax_refund = Tax_Refund_BM
+      ) %>%
       pivot_longer( # stacked plots require long-form data
         # Do not pivot Scenario and Scenario_Label
         cols = -c(Scenario, Scenario_Label),
