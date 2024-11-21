@@ -868,20 +868,22 @@ ui <- page_fluid(
     tabPanel("Income Results",
              layout_column_wrap(
                card(
-                 card_header("Comparing Total Income Across Scenarios"),
+                 card_header("Comparing income across scenarios"),
                  card_body(
                    selectInput(
                      inputId = "Plot_Choice",
                      label = "Choose a calculation to display",
                      choices = c(
-                       "Monthly household income" = "Monthly",
-                       "Total annual household income" = "Annual"
+                       "Monthly household income",
+                       "Total annual household income",
+                       "Total household income by month"
                      ),
-                     selected = "Monthly"
+                     selected = "Monthly household income"
                    ),
                    withSpinner(
                      plotlyOutput("Selected_Income_Plot")
-                   )
+                   ),
+                   uiOutput("Plot_Description")
                  )
                )
              )
@@ -1271,6 +1273,23 @@ server <- function(input, output, session) {
   
   # Income results tab server -------------------------------------------------
   
+  # Description of the income results plots
+  output$Plot_Description <- renderUI({
+    if (input$Plot_Choice == "Monthly household income") {
+      HTML(paste(
+        "The <b>Monthly household income</b> calculation shows each work scenario's typical income from working and",
+        input$Program,
+        "after all deductions. Tax refunds and other benefits are not shown in this calculation because they are not paid monthly. See the other two calculations for estimates of those payments."
+        ))
+    } else if (input$Plot_Choice == "Total annual household income") {
+      HTML(paste0(
+        "The <b>Total annual household income</b> calculation shows each work scenario's typical income from all sources, including working, ",
+        input$Program,
+        ", tax refunds, and other benefits. Tax refunds and other benefits are paid periodically, and an estimated schedule of these payments can be seen in the <b>Total household income by month</b>."
+        ))
+    }
+  })
+  
   # Creating a named vector associating colours with our income sources
   Legend_Colors <- reactiveVal( {
     setNames( # Named vector of our plot labels
@@ -1291,10 +1310,10 @@ server <- function(input, output, session) {
   output$Selected_Income_Plot <- renderPlotly({
     
     # Modify the plot data to match the requested view
-    if (input$Plot_Choice == "Monthly") {
+    if (input$Plot_Choice == "Monthly household income") {
       Selected_Plot_Data <- Plot_Data() %>%
-        filter(Income_Source != "Tax refund") # Tax refund is not shown on the monthly income plot because the refund does not occur monthly
-    } else if (input$Plot_Choice == "Annual") {
+        filter(Income_Source != "Tax refund" & Income_Source != "Other benefits") # Tax refund is not shown on the monthly income plot because the refund does not occur monthly
+    } else if (input$Plot_Choice == "Total annual household income") {
       Selected_Plot_Data <- Plot_Data() %>%
         mutate(Income = Income * 12)
     }
@@ -1680,6 +1699,11 @@ server <- function(input, output, session) {
   
   # Getting the data in shape for plotting
   Plot_Data <- reactive({
+    
+    # REPLACE these temporary values once they are properly calculated
+    Other_Benefits = c(100, 200, 125)
+    
+    #Tibble transformation
     Income_Tibble() %>%
       mutate(
         Tax_Refund_PY = map_dbl( # This is a placeholder for the purpose of building prototype plots and must be REPLACED once all income tax formulas are written.
@@ -1691,14 +1715,16 @@ server <- function(input, output, session) {
           Tax_Deduct_Formula
         ),
         # sum Tax_Refund_PY and Tax_Refund_SY, accounting for the fact that Tax_Refund_SY may be NA
-        Tax_Refund_BM = (Tax_Refund_PY + coalesce(Tax_Refund_SY, 0)) / 12
+        Tax_Refund_BM = (Tax_Refund_PY + coalesce(Tax_Refund_SY, 0)) / 12,
+        Other_Benefits_BM = Other_Benefits[row_number()] # REPLACE
       ) %>%
       select( # Reducing the data to just the columns needed
         Scenario,
         Scenario_Label,
         Reduced_SA_Pay_BM,
         Take_Home_Pay_BM,
-        Tax_Refund_BM
+        Tax_Refund_BM,
+        Other_Benefits_BM
       ) %>%
       # setNames(c(
       #   "Scenario",
@@ -1710,7 +1736,8 @@ server <- function(input, output, session) {
       rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
         Earnings_after_payroll_deductions = Take_Home_Pay_BM,
         !!paste0(input$Program, "_payments") := Reduced_SA_Pay_BM,
-        Tax_refund = Tax_Refund_BM
+        Tax_refund = Tax_Refund_BM,
+        Other_benefits = Other_Benefits_BM
       ) %>%
       pivot_longer( # stacked plots require long-form data
         # Do not pivot Scenario and Scenario_Label
