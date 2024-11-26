@@ -1,5 +1,5 @@
 ## Task for tomorrow:
-# Create two annual graphs, one summary and one month-by-month.
+# Update default scenario titles to reflect marital status.
 
 
 
@@ -1021,13 +1021,45 @@ server <- function(input, output, session) {
       )
   })
   
-  # Titles of cards 2 and 3 supplied by user.
+  # Titles of cards 2 and 3 supplied by user to reflect the scenarios they want calculated.
   output$Scen_2_Descript <- renderText({
     paste("<strong>Scenario 2</strong> -", input$Scen_2_Title)
   })
   output$Scen_3_Descript <- renderText({
     paste("<strong>Scenario 3</strong> -", input$Scen_3_Title)
   })
+  
+  # Want to make the default scenario descriptions clear in that they assume both spouses work.
+  # observeEvent(input$Spouse, {
+  #   if (input$Spouse == "Yes") {
+  #     updateTextInput(
+  #       session = shiny_session,
+  #       inputId = "Scen_2_Title",
+  #       value = "Both spouses work full-time at minimum wage"
+  #     )
+  #   } else {
+  #     updateTextInput(
+  #       session = shiny_session,
+  #       inputId = "Scen_2_Title",
+  #       value = "Work full-time at minimum wage"
+  #     )
+  #   }
+  # })
+  # observeEvent(input$Spouse, {
+  #   if (input$Spouse == "Yes") {
+  #     updateTextInput(
+  #       session = shiny_session,
+  #       inputId = "Scen_3_Title",
+  #       value = "Both spouses work full-time at minimum wage"
+  #     )
+  #   } else {
+  #     updateTextInput(
+  #       session = shiny_session,
+  #       inputId = "Scen_3_Title",
+  #       value = "Work full-time at minimum wage"
+  #     )
+  #   }
+  # })
   
   # Dynamically sized Scenario 2 card elements to accommodate spouse items.
   Spouse_Denom <- eventReactive(input$Spouse, {
@@ -1307,116 +1339,228 @@ server <- function(input, output, session) {
     LegendColors
   })
   
+  # Creating three plots of calculated income.
   output$Selected_Income_Plot <- renderPlotly({
     
     # Modify the plot data to match the requested view
     if (input$Plot_Choice == "Monthly household income") {
       Selected_Plot_Data <- Plot_Data() %>%
-        filter(Income_Source != "Tax refund" & Income_Source != "Other benefits") # Tax refund is not shown on the monthly income plot because the refund does not occur monthly
+        filter(Income_Source != "Tax refund" & Income_Source != "Other benefits")
     } else if (input$Plot_Choice == "Total annual household income") {
       Selected_Plot_Data <- Plot_Data() %>%
         mutate(Income = Income * 12)
+    } else if (input$Plot_Choice == "Total household income by month") {
+      Selected_Plot_Data <- Plot_Data() %>%
+        slice(rep(1:n(), each = 12)) %>%
+        mutate(
+          Month = rep(1:12, length.out = n()),
+          Month_Label = factor(month.name[Month], levels = month.name),
+          Income = case_when(
+            Income_Source == "Tax refund" & Month != 4 ~ 0,
+            Income_Source == "Tax refund" & Month == 4 ~ Income * 12,
+            Income_Source == "Other benefits" & !Month %in% c(1, 4, 7, 10) ~ 0,
+            Income_Source == "Other benefits" & Month %in% c(1, 4, 7, 10) ~ Income * 3,
+            TRUE ~ Income
+          ),
+          Position = Month * 4 + case_when(
+            Scenario == 1 ~ 0,
+            Scenario == 2 ~ 1,
+            Scenario == 3 ~ 2
+          ) - 3
+        )
     }
     
-    # Calculate total income for each scenario to be added to the top of each column.
-    Totals <- Selected_Plot_Data %>%
-      group_by(Scenario_Label) %>%
-      summarise(Total = sum(Income))
+    # Calculate totals based on plot type
+    if(input$Plot_Choice == "Total household income by month") {
+      Totals <- Selected_Plot_Data %>%
+        group_by(Position, Scenario_Label) %>%
+        summarise(Total = sum(Income), .groups = 'drop')
+    } else {
+      Totals <- Selected_Plot_Data %>%
+        group_by(Scenario_Label) %>%
+        summarise(Total = sum(Income))
+    }
     
-    # Count the number of income sources in the data
-    Income_Sources <- length(unique(Selected_Plot_Data$Income_Source))
-   
     # Call in our reactive legend colours
     LegendColors <- Dynamic_Legend_Colors()
     
-    # Initializing the plot
-    Plot <- plot_ly()
-    
-    # Adding traces for each scenario-income_source combination
-    for(Scenario_Idx in 1:3) {
-      # Scenario <- paste("Scenario", Scenario_Idx)
+    if(input$Plot_Choice == "Total household income by month") {
+      # Monthly view with grouped bars
+      Plot <- plot_ly()
       
-      # Define pattern fill based on scenario
-      Pattern <- list(
-        shape = switch(Scenario_Idx,
-                       "",    # Scenario 1 has a solid pattern
-                       "\\",  # Scenario 2 has a diagonal line pattern
-                       ".",   # Scenario 3 has a polka dot pattern
-        ),
-        fillmode = "overlay",
-        size = switch(Scenario_Idx,
-                      4,     # Scenario 1: unused
-                      6,     # Scenario 2: stripe size
-                      7      # Scenario 3: dot size
-        ),
-        solidity = switch(Scenario_Idx,
-                          1,    # Scenario 1: solid
-                          0.5,  # Scenario 2: stripes opacity
-                          0.1   # Scenario 3: dots opacity (reduced to make pattern less dense)
-        ),
-        fgcolor = Light_Grey,
-        spacing = switch(Scenario_Idx,
-                         4,    # Scenario 1: not used
-                         4,    # Scenario 2: not used
-                         2     # Scenario 3: increased spacing between dots
-        )
-      )
-      
-      # Adding each income source for each scenario
-      for (Source in names(LegendColors)[1:Income_Sources]) {
-        Plot_Data_Trace <- Selected_Plot_Data %>%
-          filter(Income_Source == Source, Scenario == !!Scenario_Idx)
-        # Only show legend for the first scenario, since the income sources are the same across scenarios
-        Show_Legend <- Scenario_Idx == 1
-        
-        Plot <- Plot %>%
-          add_trace(
-            data = Plot_Data_Trace,
-            x = ~Scenario_Label,
-            y = ~Income,
-            name = Source,
-            type = "bar",
-            legendgroup = Source,
-            showlegend = Show_Legend,
-            marker = list(
-              color = LegendColors[Source],
-              pattern = Pattern
-            ),
-            hovertemplate = paste0(
-              "<b>$%{y:,.0f}</b><br>",
-              Source,
-              "<extra></extra>"
-            )
+      # Loop through scenarios to apply patterns
+      for(Scenario_Idx in 1:3) {
+        # Define pattern fill based on scenario
+        Pattern <- list(
+          shape = switch(Scenario_Idx,
+                         "",    # Scenario 1 has a solid pattern
+                         "\\",  # Scenario 2 has a diagonal line pattern
+                         ".",   # Scenario 3 has a polka dot pattern
+          ),
+          fillmode = "overlay",
+          size = switch(Scenario_Idx,
+                        4,     # Scenario 1: unused
+                        6,     # Scenario 2: stripe size
+                        7      # Scenario 3: dot size
+          ),
+          solidity = switch(Scenario_Idx,
+                            1,    # Scenario 1: solid
+                            0.5,  # Scenario 2: stripes opacity
+                            0.1   # Scenario 3: dots opacity
+          ),
+          fgcolor = Light_Grey,
+          spacing = switch(Scenario_Idx,
+                           4,    # Scenario 1: not used
+                           4,    # Scenario 2: not used
+                           2     # Scenario 3: increased spacing between dots
           )
+        )
+        
+        # Filter data for this scenario
+        Scenario_Data <- Selected_Plot_Data %>%
+          filter(Scenario == Scenario_Idx)
+        
+        # Add traces for each income source in this scenario
+        for(Source in names(LegendColors)[1:length(unique(Selected_Plot_Data$Income_Source))]) {
+          Source_Data <- Scenario_Data %>%
+            filter(Income_Source == Source)
+          
+          Show_Legend <- Scenario_Idx == 1
+          
+          # Hover_Text <- paste(
+          #   "Month:", Source_Data$Month_Label,
+          #   "<br>Scenario:", Source_Data$Scenario_Label,
+          #   "<br>Income Source:", Source_Data$Income_Source,
+          #   "<br>Value: $", formatC(Source_Data$Income, format="f", big.mark=",", digits=0)
+          # )
+          
+          Plot <- Plot %>%
+            add_trace(
+              data = Source_Data,
+              x = ~Position,
+              y = ~Income,
+              name = Source,
+              type = "bar",
+              legendgroup = Source,
+              showlegend = Show_Legend,
+              stackgroup = paste("stack", Scenario_Idx),
+              marker = list(
+                color = LegendColors[Source],
+                pattern = Pattern
+              ),
+              hovertemplate = paste0(
+                "<b>$%{y:,.0f}</b><br>",
+                "<b>Scenario:</b> ", Source_Data$Scenario_Label, "<br>",
+                "<b>Income Source:</b> ", Source, "<br>",
+                "<extra></extra>"
+              )
+            )
+        }
       }
+      
+      # Layout for monthly view
+      Plot <- Plot %>%
+        layout(
+          barmode = "stack",
+          bargap = 0.2,
+          bargroupgap = 0,
+          title = input$Plot_Choice,
+          xaxis = list(
+            title = "Month",
+            tickangle = 45,
+            ticktext = month.name,
+            tickvals = seq(1, 45, by = 4),
+            tickmode = "array"
+          ),
+          yaxis = list(
+            title = "Monthly Income",
+            tickprefix = "$",
+            tickformat = ",.0f"
+          )
+        ) %>%
+        add_annotations(
+          x = ~Position,
+          y = ~Total,
+          text = ~paste0("$", formatC(Total, format="f", big.mark=",", digits=0)),
+          data = Totals,
+          showarrow = FALSE,
+          yshift = 10
+        )
+    } else {
+      # Original layout for other views
+      # Count the number of income sources
+      Income_Sources <- length(unique(Selected_Plot_Data$Income_Source))
+      
+      # Initialize plot
+      Plot <- plot_ly()
+      
+      # Adding traces for each scenario-income_source combination
+      for(Scenario_Idx in 1:3) {
+        Pattern <- list(
+          shape = switch(Scenario_Idx, "", "\\", "."),
+          fillmode = "overlay",
+          size = switch(Scenario_Idx, 4, 6, 7),
+          solidity = switch(Scenario_Idx, 1, 0.5, 0.1),
+          fgcolor = Light_Grey,
+          spacing = switch(Scenario_Idx, 4, 4, 2)
+        )
+        
+        for (Source in names(LegendColors)[1:Income_Sources]) {
+          Plot_Data_Trace <- Selected_Plot_Data %>%
+            filter(Income_Source == Source, Scenario == !!Scenario_Idx)
+          Show_Legend <- Scenario_Idx == 1
+          
+          Plot <- Plot %>%
+            add_trace(
+              data = Plot_Data_Trace,
+              x = ~Scenario_Label,
+              y = ~Income,
+              name = Source,
+              type = "bar",
+              legendgroup = Source,
+              showlegend = Show_Legend,
+              marker = list(
+                color = LegendColors[Source],
+                pattern = Pattern
+              ),
+              hovertemplate = paste0(
+                "<b>$%{y:,.0f}</b><br>",
+                Source,
+                "<extra></extra>"
+              )
+            )
+        }
+      }
+      
+      # Layout for original views
+      Plot <- Plot %>%
+        layout(
+          barmode = "stack",
+          title = input$Plot_Choice,
+          xaxis = list(title = "Your Work Scenarios"),
+          yaxis = list(
+            title = "Monthly Income",
+            tickprefix = "$",
+            tickformat = ",.0f"
+          ),
+          annotations = lapply(1:nrow(Totals), function(i) {
+            list(
+              x = Totals$Scenario_Label[i],
+              y = Totals$Total[i],
+              text = paste0("<b>$", format(round(Totals$Total[i]), big.mark = ","), "</b>"),
+              showarrow = FALSE,
+              yshift = 15,
+              font = list(size = 14),
+              bgcolor = "white",
+              bordercolor = "white",
+              borderwidth = 2,
+              borderpad = 2
+            )
+          })
+        )
     }
     
-    # Add plot layout
-    Plot %>%
-      layout(
-        barmode = "stack",
-        title = input$Plot_Choice,
-        xaxis = list(title = "Your Work Scenarios"),
-        yaxis = list(
-          title = "Monthly Income",
-          tickprefix = "$",
-          tickformat = ",.0f"
-          ),
-        annotations = lapply(1:nrow(Totals), function(i) {
-          list(
-            x = Totals$Scenario_Label[i],
-            y = Totals$Total[i],
-            text = paste0("<b>$", format(round(Totals$Total[i]), big.mark = ","), "</b>"),
-            showarrow = FALSE,
-            yshift = 15,  # Adjust this value to position the text higher or lower
-            font = list(size = 14),
-            bgcolor = "white",
-            bordercolor = "white",
-            borderwidth = 2,
-            borderpad = 2
-          )
-        })
-      )
+    Plot
   })
   
   # Data processing server ----------------------------------------------------
@@ -1684,17 +1828,7 @@ server <- function(input, output, session) {
           na.rm = TRUE
         )
       )
-    Calculated_Scenarios # uncomment the below to see the exact data the plot uses
-      # select( 
-      #   .data$Scenario,
-      #   .data$Take_Home_Pay_BM,
-      #   .data$Reduced_SA_Pay_BM
-      # ) %>%
-      # pivot_longer(
-      #   !.data$Scenario,
-      #   names_to = "Income_Source",
-      #   values_to = "Income"
-      # )
+    Calculated_Scenarios
     })
   
   # Getting the data in shape for plotting
@@ -1726,13 +1860,6 @@ server <- function(input, output, session) {
         Tax_Refund_BM,
         Other_Benefits_BM
       ) %>%
-      # setNames(c(
-      #   "Scenario",
-      #   "Scenario_Label",
-      #   paste(input$Program, "_payments"),
-      #   "Earnings_after_payroll_deductions"
-      # )
-      # ) %>%
       rename( # Alphabetizing the order in which we want stacked bars to appear vertically in the graph
         Earnings_after_payroll_deductions = Take_Home_Pay_BM,
         !!paste0(input$Program, "_payments") := Reduced_SA_Pay_BM,
