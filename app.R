@@ -18,6 +18,7 @@ library(htmltools)
 library(shinythemes)
 library(shinyvalidate)
 library(plotly)
+library(reactable)
 # library(ggiraph)
 # library(ggpattern)
 
@@ -204,7 +205,7 @@ Light_Green <- "#d3f7c6"
 Light_Blue <- "#C6EBF7"
 Light_Purple <- "#EAC6F7"
 Light_Brown <- "#F7D2C6"
-Light_Grey <- "#adadad"
+Light_Grey <- "#000000"
 Scenario_1_Color <- "#FB89B0"
 Scenario_2_Color <- "#89B0FB"
 Scenario_3_Color <- "#B0FB89"
@@ -880,8 +881,20 @@ ui <- page_fluid(
                      ),
                      selected = "Monthly household income"
                    ),
-                   withSpinner(
-                     plotlyOutput("Selected_Income_Plot")
+                   layout_column_wrap(
+                     width = NULL,  # Creates 6 columns total
+                     heights_equal = "row",
+                     style = css(grid_template_columns = "5fr 1fr"),
+                     # Plot takes up 5/6 of the space
+                     div(
+                       withSpinner(
+                         plotlyOutput("Selected_Income_Plot")
+                       )
+                     ),
+                     # Legend takes up 1/6 of the space
+                     div(
+                       uiOutput("pattern_legend")
+                     )
                    ),
                    uiOutput("Plot_Description")
                  )
@@ -1322,24 +1335,56 @@ server <- function(input, output, session) {
     }
   })
   
-  # Creating a named vector associating colours with our income sources
-  Legend_Colors <- reactiveVal( {
-    setNames( # Named vector of our plot labels
-      c(Light_Green, Light_Purple, Light_Blue, Light_Brown),
-      c("Earnings after payroll deductions",
-        "SA payments",
-        "Tax refund",
-        "Other benefits")
+  # Creating colors for scenarios
+  Scenario_Colors <- c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color)
+  
+  # Create reactive patterns for income sources
+  Income_Patterns <- reactiveVal({
+    list(
+      "Earnings after payroll deductions" = list(
+        shape = ".",       # dots
+        fillmode = "overlay",
+        size = 8,
+        solidity = 0.1,
+        fgcolor = Light_Grey,
+        spacing = 2
+      ),
+      "SA payments" = list(
+        shape = "\\",      # diagonal lines
+        fillmode = "overlay",
+        size = 4,
+        solidity = 0.2,
+        fgcolor = Light_Grey
+      ),
+      "Tax refund" = list(
+        shape = "-",      # diagonal lines
+        fillmode = "overlay",
+        size = 6,
+        solidity = 0.2,
+        fgcolor = Light_Grey
+      ),
+      "Other benefits" = list(
+        shape = "x",       # cross hatch
+        fillmode = "overlay",
+        size = 7,
+        solidity = 0.6,
+        fgcolor = Light_Grey
+        # shape = "",        # solid fill
+        # solidity = 1
+      )
     )
-    })
-  # Creating a dynamic version of the named vector that updates the SA program name
-  Dynamic_Legend_Colors <- reactive({
-    LegendColors <- Legend_Colors()
-    names(LegendColors)[2] <- paste(input$Program, "payments")
-    LegendColors
   })
   
-  # Creating three plots of calculated income.
+  Dynamic_Income_Patterns <- reactive({ 
+    patterns <- Income_Patterns() # Store the SA payments pattern 
+    sa_pattern <- patterns[["SA payments"]] 
+    # Remove the old SA payments entry 
+    patterns[["SA payments"]] <- NULL 
+    # Add the new entry with dynamic name 
+    patterns[[paste(input$Program, "payments")]] <- sa_pattern 
+    patterns 
+    })
+  
   output$Selected_Income_Plot <- renderPlotly({
     
     # Modify the plot data to match the requested view
@@ -1381,58 +1426,31 @@ server <- function(input, output, session) {
         summarise(Total = sum(Income))
     }
     
-    # Call in our reactive legend colours
-    LegendColors <- Dynamic_Legend_Colors()
+    # Generate the dynamic order of income sources
+    Dynamic_Income_Patterns <- Dynamic_Income_Patterns()
+    Income_Order <- names(Dynamic_Income_Patterns)
+    
+    # Sort the data according to the desired order of income sources
+    Selected_Plot_Data <- Selected_Plot_Data %>%
+      mutate(Income_Source = factor(Income_Source, levels = Income_Order))
     
     if(input$Plot_Choice == "Total household income by month") {
       # Monthly view with grouped bars
       Plot <- plot_ly()
       
-      # Loop through scenarios to apply patterns
+      # Loop through scenarios
       for(Scenario_Idx in 1:3) {
-        # Define pattern fill based on scenario
-        Pattern <- list(
-          shape = switch(Scenario_Idx,
-                         "",    # Scenario 1 has a solid pattern
-                         "\\",  # Scenario 2 has a diagonal line pattern
-                         ".",   # Scenario 3 has a polka dot pattern
-          ),
-          fillmode = "overlay",
-          size = switch(Scenario_Idx,
-                        4,     # Scenario 1: unused
-                        6,     # Scenario 2: stripe size
-                        7      # Scenario 3: dot size
-          ),
-          solidity = switch(Scenario_Idx,
-                            1,    # Scenario 1: solid
-                            0.5,  # Scenario 2: stripes opacity
-                            0.1   # Scenario 3: dots opacity
-          ),
-          fgcolor = Light_Grey,
-          spacing = switch(Scenario_Idx,
-                           4,    # Scenario 1: not used
-                           4,    # Scenario 2: not used
-                           2     # Scenario 3: increased spacing between dots
-          )
-        )
-        
         # Filter data for this scenario
         Scenario_Data <- Selected_Plot_Data %>%
           filter(Scenario == Scenario_Idx)
         
-        # Add traces for each income source in this scenario
-        for(Source in names(LegendColors)[1:length(unique(Selected_Plot_Data$Income_Source))]) {
+        # Add traces in reverse order for stacking, but keep original names
+        for(i in length(Income_Order):1) {
+          Source <- Income_Order[i]
           Source_Data <- Scenario_Data %>%
             filter(Income_Source == Source)
           
           Show_Legend <- Scenario_Idx == 1
-          
-          # Hover_Text <- paste(
-          #   "Month:", Source_Data$Month_Label,
-          #   "<br>Scenario:", Source_Data$Scenario_Label,
-          #   "<br>Income Source:", Source_Data$Income_Source,
-          #   "<br>Value: $", formatC(Source_Data$Income, format="f", big.mark=",", digits=0)
-          # )
           
           Plot <- Plot %>%
             add_trace(
@@ -1442,11 +1460,11 @@ server <- function(input, output, session) {
               name = Source,
               type = "bar",
               legendgroup = Source,
-              showlegend = Show_Legend,
+              showlegend = FALSE,
               stackgroup = paste("stack", Scenario_Idx),
               marker = list(
-                color = LegendColors[Source],
-                pattern = Pattern
+                color = Scenario_Colors[Scenario_Idx],
+                pattern = Dynamic_Income_Patterns[[Source]]
               ),
               hovertemplate = paste0(
                 "<b>$%{y:,.0f}</b><br>",
@@ -1476,7 +1494,8 @@ server <- function(input, output, session) {
             title = "Monthly Income",
             tickprefix = "$",
             tickformat = ",.0f"
-          )
+          ),
+          legend = list(traceorder = "reversed")
         ) %>%
         add_annotations(
           x = ~Position,
@@ -1487,25 +1506,14 @@ server <- function(input, output, session) {
           yshift = 10
         )
     } else {
-      # Original layout for other views
-      # Count the number of income sources
-      Income_Sources <- length(unique(Selected_Plot_Data$Income_Source))
-      
       # Initialize plot
       Plot <- plot_ly()
       
       # Adding traces for each scenario-income_source combination
       for(Scenario_Idx in 1:3) {
-        Pattern <- list(
-          shape = switch(Scenario_Idx, "", "\\", "."),
-          fillmode = "overlay",
-          size = switch(Scenario_Idx, 4, 6, 7),
-          solidity = switch(Scenario_Idx, 1, 0.5, 0.1),
-          fgcolor = Light_Grey,
-          spacing = switch(Scenario_Idx, 4, 4, 2)
-        )
-        
-        for (Source in names(LegendColors)[1:Income_Sources]) {
+        # Add traces in reverse order for stacking, but keep original names
+        for(i in length(Income_Order):1) {
+          Source <- Income_Order[i]
           Plot_Data_Trace <- Selected_Plot_Data %>%
             filter(Income_Source == Source, Scenario == !!Scenario_Idx)
           Show_Legend <- Scenario_Idx == 1
@@ -1518,10 +1526,11 @@ server <- function(input, output, session) {
               name = Source,
               type = "bar",
               legendgroup = Source,
-              showlegend = Show_Legend,
+              showlegend = FALSE,
+              stackgroup = paste("stack", Scenario_Idx),
               marker = list(
-                color = LegendColors[Source],
-                pattern = Pattern
+                color = Scenario_Colors[Scenario_Idx],
+                pattern = Dynamic_Income_Patterns[[Source]]
               ),
               hovertemplate = paste0(
                 "<b>$%{y:,.0f}</b><br>",
@@ -1543,6 +1552,7 @@ server <- function(input, output, session) {
             tickprefix = "$",
             tickformat = ",.0f"
           ),
+          legend = list(traceorder = "reversed"),
           annotations = lapply(1:nrow(Totals), function(i) {
             list(
               x = Totals$Scenario_Label[i],
@@ -1561,6 +1571,64 @@ server <- function(input, output, session) {
     }
     
     Plot
+  })
+  
+  # Creating a custom legend table
+  output$pattern_legend <- renderUI({
+    legend_items <- tagList(
+      div(
+        style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
+        div(
+          style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white; 
+                background-image: radial-gradient(black 1px, transparent 1px);
+                background-size: 4px 4px; flex-shrink: 0;",
+        ),
+        div(
+          style = "width: calc(100% - 40px);",
+          "Earnings after payroll deductions"
+        )
+      ),
+      div(
+        style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
+        div(
+          style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white;
+                background-image: repeating-linear-gradient(0deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
+        ),
+        div(
+          style = "width: calc(100% - 40px);",
+          "Tax refund"
+        )
+      ),
+      div(
+        style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
+        div(
+          style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white;
+                background-image: repeating-linear-gradient(45deg, black 0, black 1px, transparent 1px, transparent 4px),
+                                repeating-linear-gradient(-45deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
+        ),
+        div(
+          style = "width: calc(100% - 40px);",
+          "Other benefits"
+        )
+      ),
+      div(
+        style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
+        div(
+          style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white;
+                background-image: repeating-linear-gradient(45deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
+        ),
+        div(
+          style = "width: calc(100% - 40px);",
+          paste(input$Program, "payments")
+        )
+      )
+    )
+    
+    div(
+      style = "border: 1px solid #ddd; padding: 15px; margin-left: 20px;",
+      h5("Income Sources"),
+      legend_items
+    )
   })
   
   # Data processing server ----------------------------------------------------
