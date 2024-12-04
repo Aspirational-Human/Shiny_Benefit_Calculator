@@ -867,37 +867,42 @@ ui <- page_fluid(
              ),
     # Income results tab -----------------------------------------------------
     tabPanel("Income Results",
+             selectInput(
+               inputId = "Plot_Choice",
+               label = "Choose a calculation to display",
+               choices = c(
+                 "Monthly household income",
+                 "Total annual household income",
+                 "Total household income by month"
+               ),
+               selected = "Monthly household income"
+             ),
              layout_column_wrap(
+               width = 1,
                card(
-                 card_header("Comparing income across scenarios"),
+                 # card_header("Comparing income across scenarios"),
                  card_body(
-                   selectInput(
-                     inputId = "Plot_Choice",
-                     label = "Choose a calculation to display",
-                     choices = c(
-                       "Monthly household income",
-                       "Total annual household income",
-                       "Total household income by month"
-                     ),
-                     selected = "Monthly household income"
-                   ),
                    layout_column_wrap(
                      width = NULL,  # Creates 6 columns total
                      heights_equal = "row",
-                     style = css(grid_template_columns = "5fr 1fr"),
+                     style = css(grid_template_columns = "1fr 5fr"),
+                     # Legend takes up 1/6 of the space
+                     div(
+                       uiOutput("pattern_legend")
+                     ),
                      # Plot takes up 5/6 of the space
                      div(
                        withSpinner(
                          plotlyOutput("Selected_Income_Plot")
                        )
-                     ),
-                     # Legend takes up 1/6 of the space
-                     div(
-                       uiOutput("pattern_legend")
                      )
                    ),
                    uiOutput("Plot_Description")
                  )
+               ),
+               card(
+                 card_header("Income and other benefits"),
+                 reactableOutput("Benefits_Table")
                )
              )
     ),
@@ -1483,7 +1488,7 @@ server <- function(input, output, session) {
           barmode = "stack",
           bargap = 0.2,
           bargroupgap = 0,
-          title = input$Plot_Choice,
+          title = paste(input$Plot_Choice, "sources"),
           xaxis = list(
             title = "Month",
             tickangle = 45,
@@ -1546,7 +1551,7 @@ server <- function(input, output, session) {
       Plot <- Plot %>%
         layout(
           barmode = "stack",
-          title = input$Plot_Choice,
+          title = paste(input$Plot_Choice, "sources"),
           xaxis = list(title = "Your Work Scenarios"),
           yaxis = list(
             title = "Monthly Income",
@@ -1629,7 +1634,7 @@ server <- function(input, output, session) {
       )
     )
     
-    # Select which items to show based on input$PlotChoice
+    # Select which items to show based on input$Plot_Choice
     selected_items <- if (input$Plot_Choice == "Monthly household income") {
       # Only show earnings and program payments
       list(
@@ -1641,11 +1646,80 @@ server <- function(input, output, session) {
       all_legend_items
     }
     
-    # Create the final output
+    # Create the final legend output
     div(
       style = "border: 1px solid #ddd; padding: 15px; margin-left: 20px;",
-      h5("Income Sources"),
+      h6(HTML("<strong>Income Sources</strong>")),
       tagList(selected_items)
+    )
+  })
+  
+  # Create reactive data
+  table_data <- reactive({
+    df <- data.frame(
+      RowNames = paste("Row", 1:5),  # Add row names as first column
+      Column1 = c(1:5), #* input$multiplier,
+      Column2 = c(2:6), #* input$multiplier,
+      Column3 = c(3:7) #* input$multiplier
+    )
+    df
+  })
+  
+  output$Benefits_Table <- renderReactable({
+    reactable(
+      table_data(),
+      columns = list(
+        RowNames = colDef(  # Row names column
+          name = " ",
+          style = list(
+            background = "#e6e6e6",
+            fontWeight = "bold",
+            borderRight = "2px solid #555"
+            # borderLeft = "1px solid #ffffff",
+             # Remove left border
+          ),
+          headerStyle = list(
+            background = "white",  # Make top-left cell white
+            borderBottom = "0px"
+            # borderLeft = "0px"    # Remove left border in header
+          )
+        ),
+        Column1 = colDef(
+          name = "Your current situation",
+          style = list(background = Scenario_1_Color),  # Light blue
+          headerStyle = list(
+            background = Scenario_1_Color,  # Match column color
+            fontWeight = "bold",
+            borderBottom = "2px solid #555"
+          )
+        ),
+        Column2 = colDef(
+          name = input$Scen_2_Title,
+          style = list(background = Scenario_2_Color),  # Light pink
+          headerStyle = list(
+            background = Scenario_2_Color,  # Match column color
+            fontWeight = "bold",
+            borderBottom = "2px solid #555"
+          )
+        ),
+        Column3 = colDef(
+          name = input$Scen_3_Title,
+          style = list(background = Scenario_3_Color),  # Light green
+          headerStyle = list(
+            background = Scenario_3_Color,  # Match column color
+            fontWeight = "bold",
+            borderBottom = "2px solid #555"
+          )
+        )
+      ),
+      theme = reactableTheme(
+        borderColor = "#555",
+        style = list(
+          height = "auto"  # Prevent table from filling card height
+        )
+      ),
+      bordered = FALSE,
+      highlight = TRUE
     )
   })
   
