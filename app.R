@@ -903,29 +903,30 @@ ui <- page_fluid(
     ),
     
     # Data Validation tab -----------------------------------------------------
-    tabPanel("Data Validation",
-             fluidRow(
-               column(
-                 9,
-                 # withSpinner(plotOutput("Income_Plot"
-                 #                               )
-                 #                    )
-                 tableOutput("Income_Table")
-                 # textOutput("Gross_Output_1_PM"),
-                 # textOutput("Gross_Output_2_PM"),
-                 # textOutput("Gross_Output_3_PM"),
-                 # textOutput("Gross_Output_1_SM"),
-                 # textOutput("Gross_output_2_SM"),
-                 # textOutput("Gross_output_3_SM")
-                      )
-                      )
-             ),
+    # Turn on this panel to see data calculations for the plots.
+    # tabPanel("Data Validation",
+    #          fluidRow(
+    #            column(
+    #              9,
+    #              # withSpinner(plotOutput("Income_Plot"
+    #              #                               )
+    #              #                    )
+    #              tableOutput("Income_Table")
+    #              # textOutput("Gross_Output_1_PM"),
+    #              # textOutput("Gross_Output_2_PM"),
+    #              # textOutput("Gross_Output_3_PM"),
+    #              # textOutput("Gross_Output_1_SM"),
+    #              # textOutput("Gross_output_2_SM"),
+    #              # textOutput("Gross_output_3_SM")
+    #                   )
+    #                   )
+    #          ),
     # More information tab ----
     tabPanel("More Information",
              fluidRow(
                column(
                  9,
-                 verbatimTextOutput("Test")
+                 HTML("This page is currently blank. It may be filled in the future with additional information or FAQ.")
                )
              ))
                )
@@ -1575,47 +1576,51 @@ server <- function(input, output, session) {
   
   # Creating a custom legend table
   output$pattern_legend <- renderUI({
-    legend_items <- tagList(
-      div(
+    # Define all legend items in a list
+    all_legend_items <- list(
+      earnings = div(
         style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
         div(
           style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white; 
-                background-image: radial-gradient(black 1px, transparent 1px);
-                background-size: 4px 4px; flex-shrink: 0;",
+              background-image: radial-gradient(black 1px, transparent 1px);
+              background-size: 4px 4px; flex-shrink: 0;",
         ),
         div(
           style = "width: calc(100% - 40px);",
           "Earnings after payroll deductions"
         )
       ),
-      div(
+      
+      tax_refund = div(
         style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
         div(
           style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white;
-                background-image: repeating-linear-gradient(0deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
+              background-image: repeating-linear-gradient(0deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
         ),
         div(
           style = "width: calc(100% - 40px);",
           "Tax refund"
         )
       ),
-      div(
+      
+      other_benefits = div(
         style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
         div(
           style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white;
-                background-image: repeating-linear-gradient(45deg, black 0, black 1px, transparent 1px, transparent 4px),
-                                repeating-linear-gradient(-45deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
+              background-image: repeating-linear-gradient(45deg, black 0, black 1px, transparent 1px, transparent 4px),
+                              repeating-linear-gradient(-45deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
         ),
         div(
           style = "width: calc(100% - 40px);",
           "Other benefits"
         )
       ),
-      div(
+      
+      program_payments = div(
         style = "display: flex; align-items: flex-start; margin-bottom: 10px;",
         div(
           style = "min-width: 30px; width: 30px; height: 20px; margin-right: 10px; background-color: white;
-                background-image: repeating-linear-gradient(45deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
+              background-image: repeating-linear-gradient(45deg, black 0, black 1px, transparent 1px, transparent 4px); flex-shrink: 0;",
         ),
         div(
           style = "width: calc(100% - 40px);",
@@ -1624,10 +1629,23 @@ server <- function(input, output, session) {
       )
     )
     
+    # Select which items to show based on input$PlotChoice
+    selected_items <- if (input$Plot_Choice == "Monthly household income") {
+      # Only show earnings and program payments
+      list(
+        all_legend_items$earnings,
+        all_legend_items$program_payments
+      )
+    } else {
+      # Show all items
+      all_legend_items
+    }
+    
+    # Create the final output
     div(
       style = "border: 1px solid #ddd; padding: 15px; margin-left: 20px;",
       h5("Income Sources"),
-      legend_items
+      tagList(selected_items)
     )
   })
   
