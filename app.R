@@ -206,9 +206,9 @@ Light_Blue <- "#C6EBF7"
 Light_Purple <- "#EAC6F7"
 Light_Brown <- "#F7D2C6"
 Light_Grey <- "#000000"
-Scenario_1_Color <- "#FB89B0"
-Scenario_2_Color <- "#89B0FB"
-Scenario_3_Color <- "#B0FB89"
+Scenario_1_Color <- "#EAC6F7"
+Scenario_2_Color <- "#C6EBF7"
+Scenario_3_Color <- "#d3f7c6"
 Theme_Colours <- c(
   Light_Green,
   Light_Blue,
@@ -216,34 +216,34 @@ Theme_Colours <- c(
   Light_Brown
 )
 # Custom CSS for scenario fill patterns
-css <- HTML(sprintf('
-  /* SVG Patterns */
-  .solid-card {
-    background-color: %s !important;
-  }
-  .stripe-card {
-    background-color: %s !important;
-    background-image: url("data:image/svg+xml;base64,%s") !important;
-    background-size: 12px 12px !important;
-  }
-  .dot-card {
-    background-color: %s !important;
-    background-image: url("data:image/svg+xml;base64,%s") !important;
-    background-size: 8px 8px !important;
-  }
-  .text-container {
-    background-color: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border-radius: 4px;
-    margin: 5px 0;
-  }
-',
-                    Light_Green,
-                    Light_Green,
-                    base64enc::base64encode(charToRaw(sprintf('<svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><rect width="12" height="12" fill="%s"/><line x1="0" y1="0" x2="12" y2="12" stroke="%s" stroke-width="3"/></svg>', Light_Green, Light_Grey))),
-                    Light_Green,
-                    base64enc::base64encode(charToRaw(sprintf('<svg width="8" height="8" viewBox="0 0 8 8" xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8" fill="%s"/><circle cx="4" cy="4" r="1.5" fill="%s"/></svg>', Light_Green, Light_Grey)))
-))
+# css <- HTML(sprintf('
+#   /* SVG Patterns */
+#   .solid-card {
+#     background-color: %s !important;
+#   }
+#   .stripe-card {
+#     background-color: %s !important;
+#     background-image: url("data:image/svg+xml;base64,%s") !important;
+#     background-size: 12px 12px !important;
+#   }
+#   .dot-card {
+#     background-color: %s !important;
+#     background-image: url("data:image/svg+xml;base64,%s") !important;
+#     background-size: 8px 8px !important;
+#   }
+#   .text-container {
+#     background-color: rgba(255, 255, 255, 0.9);
+#     padding: 10px;
+#     border-radius: 4px;
+#     margin: 5px 0;
+#   }
+# ',
+#                     Light_Green,
+#                     Light_Green,
+#                     base64enc::base64encode(charToRaw(sprintf('<svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><rect width="12" height="12" fill="%s"/><line x1="0" y1="0" x2="12" y2="12" stroke="%s" stroke-width="3"/></svg>', Light_Green, Light_Grey))),
+#                     Light_Green,
+#                     base64enc::base64encode(charToRaw(sprintf('<svg width="8" height="8" viewBox="0 0 8 8" xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8" fill="%s"/><circle cx="4" cy="4" r="1.5" fill="%s"/></svg>', Light_Green, Light_Grey)))
+# ))
 
 
 # Income Functions -------------------------------------------------------------
@@ -476,33 +476,33 @@ Help_Icon <- function(AODA_Title) {
 #UI ----
 custom_theme <- bs_theme(preset = "shiny") %>%
   bs_add_variables(
-     "primary" = Primary_Color,
-  #   # "$secondary" = "#89B0FB",
-  #   # "$success" = "#B0FB89",
-  #   # "$info" = "#FB89B0",
-     "warning" = "#c10000",
-     "info" = Scenario_1_Color,
-     "light" = Scenario_2_Color,
-     "dark" = Scenario_3_Color,
-     "green" = "#d3f7c6",
-     "blue" = "#C6EBF7",
-     "purple" = "#EAC6F7",
-     "brown" = "#F7D2C6"
-  #   #"gray-100" = "#B0FB89"
-  #   # "$gray-200" = "#FB89B0",
-  #   # "$gray-300" = "#89B0FB",
-  #   # "$gray-400" = "#B0FB89",
-  #   # "$gray-500" = "#FB89B0",
-  #   # "$gray-600" = "#89B0FB",
-  #   # "$gray-700" = "#B0FB89",
-  #   # "$gray-800" = "#FB89B0",
-  #   # "$gray-900" = "#89B0FB"
-  )
+   "primary" = Primary_Color,
+  # #   # "$secondary" = "#89B0FB",
+  # #   # "$success" = "#B0FB89",
+   "info" = Primary_Color,
+  #    # "warning" = "#c10000",
+  #    # "info" = Scenario_1_Color,
+      "light" = "#9cbbff",
+  #    # "dark" = Scenario_3_Color,
+  #    # "green" = "#d3f7c6",
+  #     # "blue" = "#2039FF",
+  #    # "purple" = "#EAC6F7",
+  #    # "brown" = "#F7D2C6"
+  # #   #"gray-100" = "#B0FB89"
+  # #   # "$gray-200" = "#FB89B0",
+  # #   # "$gray-300" = "#89B0FB",
+  # #   # "$gray-400" = "#B0FB89",
+  # #   # "$gray-500" = "#FB89B0",
+  # #   # "$gray-600" = "#89B0FB",
+  # #   # "$gray-700" = "#B0FB89",
+  # #   # "$gray-800" = "#FB89B0",
+  # #   # "$gray-900" = "#89B0FB"
+   )
 
 ui <- page_fluid(
-  tags$head(
-    tags$style(css) # this is what makes the custom css available 
-  ),
+  # tags$head(
+  #   # tags$style(css) # this is what makes the custom css available 
+  # ),
   # Setting the look and feel of the app.
   theme = custom_theme,
   # Setting up the ability to provide dynamic user feedback.
@@ -730,21 +730,20 @@ ui <- page_fluid(
                  style = css(grid_template_columns = "28% 35% 35%"),
                  # Scenario 1 Card.
                  card(card_title(HTML("<strong>Scenario 1</strong> - Your Current Situation")),
-                      class = "solid-card",
-                      # style = "border: 2px solid",
-                      htmlOutput("Scen_1_Descript")
+                      style = paste0("background-color: ", Scenario_1_Color, ";"),
+                      htmlOutput("Scen_1_Descript"),
                       ),
                  # Scenario 2 Card.
                  card(
-                   class = "stripe-card",
+                   # class = "stripe-card",
                    card_title(
-                     class = "text-container",
+                     # class = "text-container",
                      htmlOutput("Scen_2_Descript")
                      ),
-                   # style = "border: 2px dashed",
+                   style = paste0("background-color: ", Scenario_2_Color, ";"),
                    card_body(
                      div(
-                       class = "text-container",
+                       # class = "text-container",
                    textInput(
                      "Scen_2_Title",
                      label = tooltip(
@@ -759,7 +758,7 @@ ui <- page_fluid(
                       )
                    ),
                    div(
-                     class = "text-container",
+                     # class = "text-container",
                    radioButtons(
                         "Format_2",
                         "Prefered income format",
@@ -793,7 +792,7 @@ ui <- page_fluid(
                       )
                    ),
                    div(
-                     class = "text-container",
+                     # class = "text-container",
                       uiOutput(
                         "Scen_2_Parameters"
                         )
@@ -802,14 +801,15 @@ ui <- page_fluid(
                     ),
                  # Scenario 3 Card.
                  card(
-                   class = "dot-card",
+                   # class = "dot-card",
                    card_title(
-                     class = "text-container",
+                     # class = "text-container",
                      htmlOutput("Scen_3_Descript")
                      ),
+                   style = paste0("background-color: ", Scenario_3_Color, ";"),
                    card_body(
                      div(
-                       class = "text-container",
+                       # class = "text-container",
                        textInput(
                          "Scen_3_Title",
                          label = tooltip(
@@ -824,7 +824,7 @@ ui <- page_fluid(
                        ) 
                      ),
                      div(
-                       class = "text-container",
+                       # class = "text-container",
                        radioButtons(
                          "Format_3",
                          "Prefered income format",
@@ -858,7 +858,7 @@ ui <- page_fluid(
                        ) 
                      ),
                      div(
-                       class = "text-container",
+                       # class = "text-container",
                        uiOutput("Scen_3_Parameters") 
                      )
                    )
