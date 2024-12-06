@@ -205,7 +205,8 @@ Light_Green <- "#d3f7c6"
 Light_Blue <- "#C6EBF7"
 Light_Purple <- "#EAC6F7"
 Light_Brown <- "#F7D2C6"
-Light_Grey <- "#000000"
+Light_Grey <- "#f2f2f2"
+Black <- "#000000"
 Scenario_1_Color <- "#EAC6F7"
 Scenario_2_Color <- "#C6EBF7"
 Scenario_3_Color <- "#d3f7c6"
@@ -539,178 +540,281 @@ ui <- page_fluid(
     tabPanel("About Me",
                h2("About Me"),
                HTML("Please answer all of the questions on this page to make the calculator results relevant to your situation.<br><br><br>"),
-               fluidRow(
-                 column(6,
-                        selectInput("Program",
-                                    "Which social assistance program do you want to use for calculations?",
-                                    choices = c(
-                                      " " = "social assistance",
-                                      "Ontario Works" = "Ontario Works",
-                                      "Ontario Disability Support Program (ODSP)" = "ODSP"
-                                    ),
-                                    selected = "social assistance"
-                        )
-                        ),
-                 column(3,
-                        autonumericInput(
-                          "SA_Payment",
-                          label = "What is your typical monthly social assistance payment?",
-                          value = NULL,
-                          currencySymbol = "$"
-                          )
-                          ),
-                 column(1,
-                        tooltip(
-                          trigger = bs_icon(
-                            "question-circle-fill",
-                            class = "text-primary",
-                            title = "Info about social assistance payments"
-                            ),
-                          "Your most recent payment can be found on Ontario.ca/MyBenefits, your bank statement, or a paper cheque from the program",
-                          placement = "top",
-                          id = "SA_Pay_Tip"
-                        )
-                        )
-                        ),
-               fluidRow(
-                 column(5, 
-                        tags$div(selectInput("Spouse",
-                                      "Do you have a spouse or common law partner?",
-                                      c("", "No", "Yes")),
-                                    id = "Spouse_Tip"
-                        )
-                 )
-               ),
-               fluidRow(
-                 column(6,
-                        conditionalPanel(condition = "input.Program == 'ODSP' && input.Spouse == 'Yes'",
-                        selectInput("Disability_P",
-                                    "Has ODSP determined that you have a disability?",
-                                    c("Yes", "No")
-                                    )
-                        )
-                        ),
-                 column(6,
-                        conditionalPanel(
-                          condition = "input.Program == 'ODSP' && input.Spouse == 'Yes'",
-                          selectInput("Disability_S",
-                                      "Has ODSP determined that your spouse has a disability?",
-                                      c("No", "Yes")
-                          )
-                   )
-                 )
-               ),
-               fluidRow(
-                 column(6,
-                        autonumericInput("Take_Home_Pay_1_PM",
-                                         label = tooltip(
-                                           trigger = list(
-                                             "What is your typical monthly take-home pay from work?",
-                                             bs_icon("question-circle-fill"
-                                                     , class = "text-primary fa-pull-right"
-                                                     , title = "Info about take-home pay"
-                                                     )
-                                           ),
-                                           "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. If you are currently unemployed, put $0."
-                                           , placement = "top"
-                                         ),
-                                         value = 0,
-                                         min = 0,
-                                         currencySymbol = "$"
-                                         )
-                        ),
-                 column(6,
-                        conditionalPanel(
-                          condition = "input.Spouse == 'Yes'",
-                          autonumericInput("Take_Home_Pay_1_SM",
-                                           label = tooltip(
-                                             trigger = list(
-                                               "What is your spouse's typical monthly take-home pay from work?",
-                                               Help_Icon("Info about spousal income")
-                                               ),
-                                             "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. If your spouse is currently unemployed, put $0."
-                                               ),
-                                           value = 0,
-                                           min = 0,
-                                           currencySymbol = "$"
+               layout_column_wrap(
+                 width = NULL,
+                 style = css(grid_template_columns = "1fr 3fr"),
+                 layout_column_wrap(
+                   width = 1,
+                   heights_equal = "row",
+                   # Card about SA program.
+                   card(
+                     fill = TRUE,
+                     class = "bg-light",
+                     card_header("My Social Assistance"),
+                     selectInput("Program",
+                                 "Which social assistance program do you want to use for calculations?",
+                                 choices = c(
+                                   " " = "social assistance",
+                                   "Ontario Works" = "Ontario Works",
+                                   "Ontario Disability Support Program (ODSP)" = "ODSP"
+                                 ),
+                                 selected = "social assistance"
+                     ),
+                     autonumericInput(
+                       "SA_Payment",
+                       label = tooltip(
+                         trigger = list(
+                           "What is your typical monthly social assistance payment?",
+                           bs_icon(
+                             "question-circle-fill",
+                             class = "text-primary fa-pull-right",
+                             title = "Info about social assistance payments"
+                           )
+                         ),
+                         "Your most recent payment can be found on Ontario.ca/MyBenefits, your bank statement, or a paper cheque from the program",
+                         placement = "top",
+                         id = "SA_Pay_Tip"
+                       ),
+                       value = NULL,
+                       currencySymbol = "$"
+                     )
+                   ),
+                   # Card about current employment
+                   card(
+                     fill = TRUE,
+                     class = "bg-light",
+                     card_header("Current Employment Income"),
+                     autonumericInput("Take_Home_Pay_1_PM",
+                                      label = tooltip(
+                                        trigger = list(
+                                          "What is your typical monthly take-home pay from work?",
+                                          bs_icon("question-circle-fill"
+                                                  , class = "text-primary fa-pull-right"
+                                                  , title = "Info about take-home pay"
                                           )
-                        )
-                        )
-               ),
-               fluidRow(
-                 column(6,
-                        numericInput("Dependents",
-                                    label = tooltip(
-                                      trigger = list(
-                                        "How many dependents are in your household?",
-                                        bs_icon(
-                                          "question-circle-fill",
-                                          class = "text-primary fa-pull-right",
-                                          title = "Info about dependents"
-                                          )
+                                        ),
+                                        "Take-home pay is the amount paid to you by your employer after payroll deductions, like taxes and CPP. If you are currently unemployed, put $0."
+                                        , placement = "top"
                                       ),
-                                      "Dependents include children or others who live with you and are included in your Ontario Works unit. Do not include yourself in this number.",
-                                      placement = "top",
-                                      id = "Dep_Tip"
+                                      value = 0,
+                                      min = 0,
+                                      currencySymbol = "$"
+                     ),
+                     conditionalPanel(
+                       condition = "input.Spouse == 'Yes'",
+                       autonumericInput("Take_Home_Pay_1_SM",
+                                        label = tooltip(
+                                          trigger = list(
+                                            "What is your spouse's typical monthly take-home pay from work?",
+                                            Help_Icon("Info about spousal income")
+                                          ),
+                                          "Take-home pay is the amount paid to your spouse by their employer after payroll deductions, like taxes and CPP. If your spouse is currently unemployed, put $0."
+                                        ),
+                                        value = 0,
+                                        min = 0,
+                                        currencySymbol = "$"
+                       )
+                     )
+                   )
+                 ),
+                 # Card about household composition.
+                 card(
+                   fill = TRUE,
+                   class = "bg-light",
+                   card_header("My Household"),
+                   layout_column_wrap(
+                     width = 1/2,
+                     tags$div(selectInput("Spouse",
+                                          "Do you have a spouse or common law partner?",
+                                          c("", "No", "Yes")),
+                              id = "Spouse_Tip"
+                     ),
+                     conditionalPanel(
+                       condition = "input.Spouse == 'Yes'",
+                       numericInput(
+                         "Age_S",
+                         HTML("<br>How old is your spouse?"),
+                         value = NULL,
+                         min = 0,
+                         max = 99
+                       )
+                     ),
+                     numericInput(
+                       "Age_P",
+                       HTML("<br>How old are you?"),
+                       value = NULL,
+                       min = 0,
+                       max = 99
+                        ),
+                     conditionalPanel(condition = "input.Program == 'ODSP' && input.Spouse == 'Yes'",
+                                      selectInput("Disability_P",
+                                                  HTML("Has ODSP determined that <strong>you</strong> have a disability?"),
+                                                  c("Yes", "No")
+                                      )
+                        ),
+                     numericInput("Dependents",
+                                  label = tooltip(
+                                    trigger = list(
+                                      "How many dependents are in your household?",
+                                      bs_icon(
+                                        "question-circle-fill",
+                                        class = "text-primary fa-pull-right",
+                                        title = "Info about dependents"
+                                      )
                                     ),
-                                    value = NULL
-                                    , min = 0
-                                    , max = 12
-                                    )
+                                    "Dependents include children or others who live with you and are included in your Ontario Works unit. Do not include yourself in this number.",
+                                    placement = "top",
+                                    id = "Dep_Tip"
+                                  ),
+                                  value = NULL
+                                  , min = 0
+                                  , max = 12
+                        ),
+                     conditionalPanel(
+                       condition = "input.Program == 'ODSP' && input.Spouse == 'Yes'",
+                       selectInput("Disability_S",
+                                   HTML("Has ODSP determined that <strong>your spouse</strong> has a disability?"),
+                                   c("No", "Yes")
+                       )
+                     ),
+                     conditionalPanel(
+                       condition = "input.Dependents >= 1",
+                       numericInput(
+                         "Age_D_1",
+                         "How old is your dependent?",
+                         value = NULL,
+                         min = 0,
+                         max = 99
+                       )
+                     ),
+                     conditionalPanel(
+                       condition = "input.Dependents >= 2",
+                       numericInput(
+                         "Age_D_1",
+                         "How old is your second dependent?",
+                         value = NULL,
+                         min = 0,
+                         max = 99
+                       )
+                     )
+                   )
+                 )
+            ),
+            # Card about subsidized rent
+            card(
+              fill = TRUE,
+              class = "bg-light",
+              card_header("My Housing"),
+              layout_column_wrap(
+                width = 1/3,
+                selectInput(
+                  "Subsidized_Rent",
+                  # Create a tooltip for this input
+                  label = tooltip(
+                    trigger = list(
+                      "Do you receive subsidized rent from one of the following programs?",
+                      bs_icon("question-circle-fill",
+                              call = "text-primary fa-pull-right",
+                              title = "Info about subsidized rent"
+                      )
+                    ),
+                    "Other rent subsidy programs are not included in this calculator at this time. Speak with your caseworker to determine how other subsidies may be affected by earned income.",
+                    placement = "top"
+                  ),
+                  c(
+                    "No" = "No",
+                    "Rent Geared to Income (RGI)" = "RGI",
+                    "Canada-Ontario Housing Benefit (COHB)" = "COHB"
+                  )
+                ),
+                # Conditional on receiving a rent subsidy, ask how much monthly subsidized rent user is paying.
+                conditionalPanel(
+                  condition = "input.Subsidized_Rent != 'No'",
+                  autonumericInput(
+                    "Subsidized_Rent_Amount",
+                    label = tooltip(
+                      trigger = list(
+                        "How much is your monthly subsidized rent?",
+                        bs_icon("question-circle-fill",
+                                class = "text-primary fa-pull-right",
+                                title = "Info about subsidized rent amount"
                         )
-               ),
-             fluidRow(
-               column(
-                 6,
-                 numericInput(
-                   "Age_P",
-                   "How old are you?",
-                   value = NULL,
-                   min = 0,
-                   max = 99
-                 )
-               ),
-               column(
-                 2,
-                 conditionalPanel(
-                   condition = "input.Spouse == 'Yes'",
-                   numericInput(
-                      "Age_S",
-                      "How old is your spouse?",
-                      value = NULL,
-                      min = 0,
-                      max = 99
+                      ),
+                      "This is the amount you pay for rent after any subsidy is applied. If you are not sure, check your lease agreement or ask your landlord"
+                    ),
+                    value = NULL,
+                    min = 0,
+                    currencySymbol = "$"
+                  )
+                ),
+                # Conditional on receiving a rent subsidy, ask whether heating and electricity costs are included in their rent or whether they pay for these utilities separately.
+                conditionalPanel(
+                  condition = "input.Subsidized_Rent != 'No'",
+                  selectInput(
+                    "Utilities",
+                    label = tooltip(
+                      trigger = list(
+                        "Are heating and electricity costs included in your subsidized rent?",
+                        bs_icon("question-circle-fill",
+                                class = "text-primary fa-pull-right",
+                                title = "Info about utilities"
+                        )
+                      ),
+                      "If you are not sure, check your lease agreement or ask your landlord",
+                    ),
+                    c(
+                      "Both heat and electricity are included in my rent" = "Both",
+                      "Heat is included in my rent, but not electricity" = "Heat Only",
+                      "Electricity is included in my rent, but not heat" = "Electricity Only",
+                      "Neither heat nor electricity is included in my rent" = "Neither"
                     )
-                   )
-               ),
-               column(
-                 6,
-                 conditionalPanel(
-                   condition = "input.Dependents >= 1",
-                   numericInput(
-                     "Age_D_1",
-                     "How old is your dependent?",
-                     value = NULL,
-                     min = 0,
-                     max = 99
-                   )
-                 )
-               ),
-               column(
-                 2,
-                 conditionalPanel(
-                   condition = "input.Dependents >= 2",
-                   numericInput(
-                     "Age_D_1",
-                     "How old is your second dependent?",
-                     value = NULL,
-                     min = 0,
-                     max = 99
-                   )
-                 )
-               )
-             )
-    ),
+                  )
+                ),
+                # If they receive a rent subsidy and they pay for any of their utilities separately, ask them for the dollar amount paid annually for the utilities they pay for in two separate inputs (i.e., heat and electricity. If they only pay for one utility, only show them the relevant input amount question. Two separate conditional panels will be needed to accomodate the heat only and electricity only options from the input$Utilities). The tooltips should suggest that this amount should be available on their utility bill.
+                conditionalPanel(
+                  condition = "input.Utilities == 'Neither' || input.Utilities == 'Heat Only'",
+                  autonumericInput(
+                    "Heat_Cost",
+                    label = tooltip(
+                      trigger = list(
+                        "How much do you pay annually for heating?",
+                        bs_icon("question-circle-fill",
+                                class = "text-primary fa-pull-right",
+                                title = "Info about heating costs"
+                        )
+                      ),
+                      "This is the amount you pay for heating in a year. If you are not sure, check your utility bill or ask your landlord",
+                      placement = "top"
+                    ),
+                    value = NULL,
+                    min = 0,
+                    currencySymbol = "$"
+                  )
+                ),
+                conditionalPanel(
+                  condition = "input.Utilities == 'Neither' || input.Utilities == 'Electricity Only'",
+                  autonumericInput(
+                    "Electricity_Cost",
+                    label = tooltip(
+                      trigger = list(
+                        "How much do you pay annually for electricity?",
+                        bs_icon("question-circle-fill",
+                                class = "text-primary fa-pull-right",
+                                title = "Info about electricity costs"
+                        )
+                      ),
+                      "This is the amount you pay for electricity in a year. If you are not sure, check your utility bill or ask your landlord",
+                      placement = "top"
+                    ),
+                    value = NULL,
+                    min = 0,
+                    currencySymbol = "$"
+                  )
+                )
+              )
+              
+              )
+      ),
     # Work scenarios tab ----------------
     tabPanel("Work Scenarios",
              # fluidPage(
@@ -908,25 +1012,28 @@ ui <- page_fluid(
     ),
     
     # Data Validation tab -----------------------------------------------------
+    
     # Turn on this panel to see data calculations for the plots.
-    # tabPanel("Data Validation",
-    #          fluidRow(
-    #            column(
-    #              9,
-    #              # withSpinner(plotOutput("Income_Plot"
-    #              #                               )
-    #              #                    )
-    #              tableOutput("Income_Table")
-    #              # textOutput("Gross_Output_1_PM"),
-    #              # textOutput("Gross_Output_2_PM"),
-    #              # textOutput("Gross_Output_3_PM"),
-    #              # textOutput("Gross_Output_1_SM"),
-    #              # textOutput("Gross_output_2_SM"),
-    #              # textOutput("Gross_output_3_SM")
-    #                   )
-    #                   )
-    #          ),
-    # More information tab ----
+    tabPanel("Data Validation",
+             fluidRow(
+               column(
+                 9,
+                 # withSpinner(plotOutput("Income_Plot"
+                 #                               )
+                 #                    )
+                 tableOutput("Income_Table")
+                 # textOutput("Gross_Output_1_PM"),
+                 # textOutput("Gross_Output_2_PM"),
+                 # textOutput("Gross_Output_3_PM"),
+                 # textOutput("Gross_Output_1_SM"),
+                 # textOutput("Gross_output_2_SM"),
+                 # textOutput("Gross_output_3_SM")
+                      )
+                      )
+             ),
+    
+    # More information tab ----------------------------------------------------
+    
     tabPanel("More Information",
              fluidRow(
                column(
@@ -988,36 +1095,24 @@ server <- function(input, output, session) {
     update_tooltip(
       session = shiny_session,
       id = "Dep_Tip",
-      label = paste0("Dependents include children or others who live with you and are included in your ",
+      label = paste("Dependents include children or others who live with you and are included in your",
                      input$Program,
-                     " unit. Do not include yourself ",
+                     "unit. Do not include yourself",
                      Spouse_Instruct,
-                     " in this number.")
+                     "in this number.")
       )
   })
+  
   observeEvent(input$Program, {
-    label <- paste0(
-      "What is your typical monthly ",
-      input$Program,
-      " payment?"
-      )
-    tip <- paste0(
-      "Your most recent ",
-      input$Program,
-      " payment can be found on Ontario.ca/MyBenefits, your bank statement, or an ",
-      input$Program,
-      " cheque"
-    )
+    req(input$Program != "social assistance")
     update_tooltip(
       session = shiny_session,
       id = "SA_Pay_Tip",
-      tip
+      label = paste("Your most recent"
+                    , input$Program,
+                    "payment can be found on Ontario.ca/MyBenefits, your bank statement, or a paper cheque from the program"
+                    )
     )
-    updateAutonumericInput(
-      session = shiny_session,
-      "SA_Payment",
-      label = label
-                           )
   })
   
   # Work scenarios tab server ---------------
@@ -1352,7 +1447,7 @@ server <- function(input, output, session) {
         fillmode = "overlay",
         size = 8,
         solidity = 0.1,
-        fgcolor = Light_Grey,
+        fgcolor = Black,
         spacing = 2
       ),
       "SA payments" = list(
@@ -1360,21 +1455,21 @@ server <- function(input, output, session) {
         fillmode = "overlay",
         size = 4,
         solidity = 0.2,
-        fgcolor = Light_Grey
+        fgcolor = Black
       ),
       "Tax refund" = list(
         shape = "-",      # diagonal lines
         fillmode = "overlay",
         size = 6,
         solidity = 0.2,
-        fgcolor = Light_Grey
+        fgcolor = Black
       ),
       "Other benefits" = list(
         shape = "x",       # cross hatch
         fillmode = "overlay",
         size = 7,
         solidity = 0.6,
-        fgcolor = Light_Grey
+        fgcolor = Black
         # shape = "",        # solid fill
         # solidity = 1
       )
@@ -1784,6 +1879,10 @@ server <- function(input, output, session) {
     IV$enable()
     # Do not perform the output until all the input is available.
     req(IV$is_valid())
+    
+    # REPLACE these temporary values once they are properly calculated
+    Other_Benefits = c(100, 200, 125)
+    
     Scenarios <- tibble(
       Scenario = c(1:3),
       Scenario_Label = factor( # factor with levels controls order of scenarios in subsequent plots
@@ -1964,54 +2063,55 @@ server <- function(input, output, session) {
           ),
         Unreduced_SA_Pay = .env$input$SA_Payment + SA_Reduction_Formula(
           .env$input$Take_Home_Pay_1_PM, .data$Disability_P[1] # reduction in SA payment due to principal's earnings
-        ) + SA_Reduction_Formula(
+          ) + SA_Reduction_Formula(
           .env$input$Take_Home_Pay_1_SM, .data$Disability_S[1] # reduction in SA payment due to spouse's earnings
-        ),
+          ),
         Reduced_SA_Pay_BM = (.data$Unreduced_SA_Pay - map2_dbl(
           .data$Take_Home_Pay_PM,
           .data$Disability_P,
           SA_Reduction_Formula
-        ) - map2_dbl(
+            ) - map2_dbl(
           .data$Take_Home_Pay_SM,
           .data$Disability_S,
           SA_Reduction_Formula
+            )
+          ) %>%
+          pmax(0),
+        Take_Home_Pay_BM = .data$Take_Home_Pay_PM + coalesce(.data$Take_Home_Pay_SM, 0),
+        Tax_Refund_PY = map_dbl( # This is a placeholder for the purpose of building prototype plots and must be REPLACED once all income tax formulas are written.
+          Gross_Income_PM * 12,
+          Tax_Deduct_Formula
+          ),
+        Tax_Refund_SY = map_dbl( # REPLACE
+          Gross_Income_SM * 12,
+          Tax_Deduct_Formula
+          ),
+        # sum Tax_Refund_PY and Tax_Refund_SY, accounting for the fact that Tax_Refund_SY may be NA
+        Tax_Refund_BM = (Tax_Refund_PY + coalesce(Tax_Refund_SY, 0)) / 12,
+        Other_Benefits_BM = Other_Benefits[row_number()], # REPLACE
+        Total_Income_BM = Take_Home_Pay_BM + Reduced_SA_Pay_BM,
+        Total_Income_BY = (Take_Home_Pay_BM + Reduced_SA_Pay_BM + Tax_Refund_BM + Other_Benefits_BM) * 12,
+        SA_Status = case_when(
+          .data$Reduced_SA_Pay_BM > 0 ~ "Active",
+          .data$Reduced_SA_Pay_BM <= 0 ~ "Inactive"
+          ),
+        Health_Benefits = case_when(
+          .data$Reduced_SA_Pay_BM > 0 ~ "Unchanged",
+          .data$Reduced_SA_Pay_BM <= 0 ~ "Extended Employment Health Benefits may be available"
+          ),
+        Childcare_Cost = case_when(
+          .data$Reduced_SA_Pay_BM > 0 ~ paste("100% covered by", input$Program),
+          .data$Reduced_SA_Pay_BM <= 0 ~ "$100" #REPLACE
+          )
         )
-        ) %>%
-          pmax(0)
-        )
-    Calculated_Scenarios <- Calculated_Scenarios %>%
-      rowwise() %>%
-      mutate(
-        Take_Home_Pay_BM = sum(
-          .data$Take_Home_Pay_PM,
-          .data$Take_Home_Pay_SM,
-          na.rm = TRUE
-        )
-      )
-    Calculated_Scenarios
+    return(Calculated_Scenarios)
     })
   
   # Getting the data in shape for plotting
   Plot_Data <- reactive({
     
-    # REPLACE these temporary values once they are properly calculated
-    Other_Benefits = c(100, 200, 125)
-    
     #Tibble transformation
     Income_Tibble() %>%
-      mutate(
-        Tax_Refund_PY = map_dbl( # This is a placeholder for the purpose of building prototype plots and must be REPLACED once all income tax formulas are written.
-          Gross_Income_PM * 12,
-          Tax_Deduct_Formula
-        ),
-        Tax_Refund_SY = map_dbl( # REPLACE
-          Gross_Income_SM * 12,
-          Tax_Deduct_Formula
-        ),
-        # sum Tax_Refund_PY and Tax_Refund_SY, accounting for the fact that Tax_Refund_SY may be NA
-        Tax_Refund_BM = (Tax_Refund_PY + coalesce(Tax_Refund_SY, 0)) / 12,
-        Other_Benefits_BM = Other_Benefits[row_number()] # REPLACE
-      ) %>%
       select( # Reducing the data to just the columns needed
         Scenario,
         Scenario_Label,
@@ -2042,5 +2142,8 @@ server <- function(input, output, session) {
   output$Income_Table <- renderTable( {
     Income_Tibble()
   })
+  # output$Benefits_Table <- renderTable( {
+  #   Benefits_Data()
+  # })
 }
 shinyApp(ui, server)
