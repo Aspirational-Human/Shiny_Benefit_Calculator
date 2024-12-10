@@ -207,6 +207,7 @@ Light_Purple <- "#EAC6F7"
 Light_Brown <- "#F7D2C6"
 Light_Grey <- "#f2f2f2"
 Black <- "#000000"
+Scenario_Colors <- c("#EAC6F7", "#C6EBF7", "#d3f7c6")
 Scenario_1_Color <- "#EAC6F7"
 Scenario_2_Color <- "#C6EBF7"
 Scenario_3_Color <- "#d3f7c6"
@@ -565,11 +566,7 @@ ui <- page_fluid(
                        label = tooltip(
                          trigger = list(
                            "What is your typical monthly social assistance payment?",
-                           bs_icon(
-                             "question-circle-fill",
-                             class = "text-primary fa-pull-right",
-                             title = "Info about social assistance payments"
-                           )
+                           Help_Icon("Info about social assistance payments")
                          ),
                          "Your most recent payment can be found on Ontario.ca/MyBenefits, your bank statement, or a paper cheque from the program",
                          placement = "top",
@@ -668,7 +665,7 @@ ui <- page_fluid(
                                   ),
                                   value = NULL
                                   , min = 0
-                                  , max = 12
+                                  , max = 6
                         ),
                      conditionalPanel(
                        condition = "input.Program == 'ODSP' && input.Spouse == 'Yes'",
@@ -690,8 +687,49 @@ ui <- page_fluid(
                      conditionalPanel(
                        condition = "input.Dependents >= 2",
                        numericInput(
-                         "Age_D_1",
+                         "Age_D_2",
                          "How old is your second dependent?",
+                         value = NULL,
+                         min = 0,
+                         max = 99
+                       )
+                     ),
+                     # Repeat age of dependents questions up to 12 dependents
+                     conditionalPanel(
+                       condition = "input.Dependents >= 3",
+                       numericInput(
+                         "Age_D_3",
+                         "How old is your third dependent?",
+                         value = NULL,
+                         min = 0,
+                         max = 99
+                       )
+                     ),
+                     conditionalPanel(
+                       condition = "input.Dependents >= 4",
+                       numericInput(
+                         "Age_D_4",
+                         "How old is your fourth dependent?",
+                         value = NULL,
+                         min = 0,
+                         max = 99
+                       )
+                     ),
+                     conditionalPanel(
+                       condition = "input.Dependents >= 5",
+                       numericInput(
+                         "Age_D_5",
+                         "How old is your fifth dependent?",
+                         value = NULL,
+                         min = 0,
+                         max = 99
+                       )
+                     ),
+                     conditionalPanel(
+                       condition = "input.Dependents >= 6",
+                       numericInput(
+                         "Age_D_6",
+                         "How old is your sixth dependent?",
                          value = NULL,
                          min = 0,
                          max = 99
@@ -713,10 +751,7 @@ ui <- page_fluid(
                   label = tooltip(
                     trigger = list(
                       "Do you receive subsidized rent from one of the following programs?",
-                      bs_icon("question-circle-fill",
-                              call = "text-primary fa-pull-right",
-                              title = "Info about subsidized rent"
-                      )
+                      Help_Icon("Info about subsidized rent")
                     ),
                     "Other rent subsidy programs are not included in this calculator at this time. Speak with your caseworker to determine how other subsidies may be affected by earned income.",
                     placement = "top"
@@ -735,10 +770,7 @@ ui <- page_fluid(
                     label = tooltip(
                       trigger = list(
                         "How much is your monthly subsidized rent?",
-                        bs_icon("question-circle-fill",
-                                class = "text-primary fa-pull-right",
-                                title = "Info about subsidized rent amount"
-                        )
+                        Help_Icon("Info about subsidized rent amount")
                       ),
                       "This is the amount you pay for rent after any subsidy is applied. If you are not sure, check your lease agreement or ask your landlord"
                     ),
@@ -755,10 +787,7 @@ ui <- page_fluid(
                     label = tooltip(
                       trigger = list(
                         "Are heating and electricity costs included in your subsidized rent?",
-                        bs_icon("question-circle-fill",
-                                class = "text-primary fa-pull-right",
-                                title = "Info about utilities"
-                        )
+                        Help_Icon("Info about utilities")
                       ),
                       "If you are not sure, check your lease agreement or ask your landlord",
                     ),
@@ -778,10 +807,7 @@ ui <- page_fluid(
                     label = tooltip(
                       trigger = list(
                         "How much do you pay annually for heating?",
-                        bs_icon("question-circle-fill",
-                                class = "text-primary fa-pull-right",
-                                title = "Info about heating costs"
-                        )
+                        Help_Icon("Info about heating costs")
                       ),
                       "This is the amount you pay for heating in a year. If you are not sure, check your utility bill or ask your landlord",
                       placement = "top"
@@ -798,10 +824,7 @@ ui <- page_fluid(
                     label = tooltip(
                       trigger = list(
                         "How much do you pay annually for electricity?",
-                        bs_icon("question-circle-fill",
-                                class = "text-primary fa-pull-right",
-                                title = "Info about electricity costs"
-                        )
+                        Help_Icon("Info about electricity costs")
                       ),
                       "This is the amount you pay for electricity in a year. If you are not sure, check your utility bill or ask your landlord",
                       placement = "top"
@@ -823,9 +846,9 @@ ui <- page_fluid(
                     <br>
                     <br>
                     <ul>
-                    <li><span style='background-color:", Scenario_1_Color, ";'><strong>Scenario 1</strong></span> has been set to your current situation.</li>
-                    <li><span style='background-color:", Scenario_2_Color, ";'><strong>Scenario 2</strong></span> has been set to part-time employment at minimum wage ($17.20 an hour).</li>
-                    <li><span style='background-color:", Scenario_3_Color, ";'><strong>Scenario 3</strong></span> has been set to full-time employment at minimum wage.</li>
+                    <li><span style='background-color:", Scenario_Colors[1], ";'><strong>Scenario 1</strong></span> has been set to your current situation.</li>
+                    <li><span style='background-color:", Scenario_Colors[2], ";'><strong>Scenario 2</strong></span> has been set to part-time employment at minimum wage ($17.20 an hour).</li>
+                    <li><span style='background-color:", Scenario_Colors[3], ";'><strong>Scenario 3</strong></span> has been set to full-time employment at minimum wage.</li>
                     </ul>"
                     )
                     ),
@@ -834,7 +857,7 @@ ui <- page_fluid(
                  style = css(grid_template_columns = "28% 35% 35%"),
                  # Scenario 1 Card.
                  card(card_title(HTML("<strong>Scenario 1</strong> - Your Current Situation")),
-                      style = paste0("background-color: ", Scenario_1_Color, ";"),
+                      style = paste0("background-color: ", Scenario_Colors[1], ";"),
                       htmlOutput("Scen_1_Descript"),
                       ),
                  # Scenario 2 Card.
@@ -844,7 +867,7 @@ ui <- page_fluid(
                      # class = "text-container",
                      htmlOutput("Scen_2_Descript")
                      ),
-                   style = paste0("background-color: ", Scenario_2_Color, ";"),
+                   style = paste0("background-color: ", Scenario_Colors[2], ";"),
                    card_body(
                      div(
                        # class = "text-container",
@@ -910,7 +933,7 @@ ui <- page_fluid(
                      # class = "text-container",
                      htmlOutput("Scen_3_Descript")
                      ),
-                   style = paste0("background-color: ", Scenario_3_Color, ";"),
+                   style = paste0("background-color: ", Scenario_Colors[3], ";"),
                    card_body(
                      div(
                        # class = "text-container",
@@ -1014,23 +1037,21 @@ ui <- page_fluid(
     # Data Validation tab -----------------------------------------------------
     
     # Turn on this panel to see data calculations for the plots.
-    tabPanel("Data Validation",
-             fluidRow(
-               column(
-                 9,
-                 # withSpinner(plotOutput("Income_Plot"
-                 #                               )
-                 #                    )
-                 tableOutput("Income_Table")
-                 # textOutput("Gross_Output_1_PM"),
-                 # textOutput("Gross_Output_2_PM"),
-                 # textOutput("Gross_Output_3_PM"),
-                 # textOutput("Gross_Output_1_SM"),
-                 # textOutput("Gross_output_2_SM"),
-                 # textOutput("Gross_output_3_SM")
-                      )
-                      )
-             ),
+    tabPanel(
+      "Data Validation",
+      card(
+        card_header("Income Table"),
+        tableOutput("Income_Table")
+        ),
+      card(
+        card_header("Plot Data Table"),
+        tableOutput("Plot_Data_Table")
+      ),
+      card(
+        card_header("Benefits Table"),
+        tableOutput("Benefits_Table_1")
+        )
+      ),
     
     # More information tab ----------------------------------------------------
     
@@ -1436,9 +1457,6 @@ server <- function(input, output, session) {
     }
   })
   
-  # Creating colors for scenarios
-  Scenario_Colors <- c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color)
-  
   # Create reactive patterns for income sources
   Income_Patterns <- reactiveVal({
     list(
@@ -1761,56 +1779,49 @@ server <- function(input, output, session) {
   })
   
   output$Benefits_Table <- renderReactable({
-    reactable(
-      table_data(),
-      columns = list(
-        RowNames = colDef(  # Row names column
-          name = " ",
-          style = list(
-            background = "#e6e6e6",
-            fontWeight = "bold",
-            borderRight = "2px solid #555"
-            # borderLeft = "1px solid #ffffff",
-             # Remove left border
-          ),
-          headerStyle = list(
-            background = "white",  # Make top-left cell white
-            borderBottom = "0px"
-            # borderLeft = "0px"    # Remove left border in header
-          )
-        ),
-        Column1 = colDef(
-          name = "Your current situation",
-          style = list(background = Scenario_1_Color),  # Light blue
-          headerStyle = list(
-            background = Scenario_1_Color,  # Match column color
-            fontWeight = "bold",
-            borderBottom = "2px solid #555"
-          )
-        ),
-        Column2 = colDef(
-          name = input$Scen_2_Title,
-          style = list(background = Scenario_2_Color),  # Light pink
-          headerStyle = list(
-            background = Scenario_2_Color,  # Match column color
-            fontWeight = "bold",
-            borderBottom = "2px solid #555"
-          )
-        ),
-        Column3 = colDef(
-          name = input$Scen_3_Title,
-          style = list(background = Scenario_3_Color),  # Light green
-          headerStyle = list(
-            background = Scenario_3_Color,  # Match column color
-            fontWeight = "bold",
-            borderBottom = "2px solid #555"
-          )
-        )
+    # Get all column names from Benefits_Data()
+    col_names <- names(Benefits_Data())
+    
+    # Dynamically create the columns list
+    column_defs <- list()
+    
+    # Add definition for first column (Variable)
+    column_defs[[col_names[1]]] <- colDef(
+      name = col_names[1],
+      style = list(
+        background = "#e6e6e6",
+        fontWeight = "bold",
+        borderRight = "2px solid #555"
       ),
+      headerStyle = list(
+        background = "white",
+        borderBottom = "0px"
+      )
+    )
+    
+    # Add definitions for scenario columns
+    scenario_colors <- c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color)
+    
+    # Add each scenario column definition, starting from second column
+    for(i in 2:length(col_names)) {
+      column_defs[[col_names[i]]] <- colDef(
+        name = col_names[i],  # Use the actual column name from the data
+        style = list(background = scenario_colors[i-1]),
+        headerStyle = list(
+          background = scenario_colors[i-1],
+          fontWeight = "bold",
+          borderBottom = "2px solid #555"
+        )
+      )
+    }
+    
+    reactable(
+      Benefits_Data(),
+      columns = column_defs,
       theme = reactableTheme(
         borderColor = "#555",
         style = list(
-          height = "auto"  # Prevent table from filling card height
+          height = "auto"
         )
       ),
       bordered = FALSE,
@@ -2089,8 +2100,8 @@ server <- function(input, output, session) {
         # sum Tax_Refund_PY and Tax_Refund_SY, accounting for the fact that Tax_Refund_SY may be NA
         Tax_Refund_BM = (Tax_Refund_PY + coalesce(Tax_Refund_SY, 0)) / 12,
         Other_Benefits_BM = Other_Benefits[row_number()], # REPLACE
-        Total_Income_BM = Take_Home_Pay_BM + Reduced_SA_Pay_BM,
-        Total_Income_BY = (Take_Home_Pay_BM + Reduced_SA_Pay_BM + Tax_Refund_BM + Other_Benefits_BM) * 12,
+        Total_Income_BM = round(Take_Home_Pay_BM + Reduced_SA_Pay_BM, 0),
+        Total_Income_BY = round((Take_Home_Pay_BM + Reduced_SA_Pay_BM + Tax_Refund_BM + Other_Benefits_BM) * 12, 0),
         SA_Status = case_when(
           .data$Reduced_SA_Pay_BM > 0 ~ "Active",
           .data$Reduced_SA_Pay_BM <= 0 ~ "Inactive"
@@ -2099,9 +2110,40 @@ server <- function(input, output, session) {
           .data$Reduced_SA_Pay_BM > 0 ~ "Unchanged",
           .data$Reduced_SA_Pay_BM <= 0 ~ "Extended Employment Health Benefits may be available"
           ),
-        Childcare_Cost = case_when(
-          .data$Reduced_SA_Pay_BM > 0 ~ paste("100% covered by", input$Program),
-          .data$Reduced_SA_Pay_BM <= 0 ~ "$100" #REPLACE
+        Childcare_Cost_BM = case_when(
+          any(c(
+            as.numeric(coalesce(input$Age_D_1, 999)), 
+            as.numeric(coalesce(input$Age_D_2, 999)),
+            as.numeric(coalesce(input$Age_D_3, 999)),
+            as.numeric(coalesce(input$Age_D_4, 999)),
+            as.numeric(coalesce(input$Age_D_5, 999)),
+            as.numeric(coalesce(input$Age_D_6, 999))
+          ) <= 12) & .data$Reduced_SA_Pay_BM > 0 
+          ~ paste("100% covered by", input$Program),
+          any(c( # REPLACE
+            as.numeric(coalesce(input$Age_D_1, 999)),
+            as.numeric(coalesce(input$Age_D_2, 999)),
+            as.numeric(coalesce(input$Age_D_3, 999)),
+            as.numeric(coalesce(input$Age_D_4, 999)),
+            as.numeric(coalesce(input$Age_D_5, 999)),
+            as.numeric(coalesce(input$Age_D_6, 999))
+          ) <= 12) & .data$Reduced_SA_Pay_BM <= 0 
+          ~ sprintf("$%.2f", Take_Home_Pay_BM * 0.1 * sum(
+            between(as.numeric(coalesce(input$Age_D_1, 0)), 1, 12),
+            between(as.numeric(coalesce(input$Age_D_2, 0)), 1, 12),
+            between(as.numeric(coalesce(input$Age_D_3, 0)), 1, 12),
+            between(as.numeric(coalesce(input$Age_D_4, 0)), 1, 12),
+            between(as.numeric(coalesce(input$Age_D_5, 0)), 1, 12),
+            between(as.numeric(coalesce(input$Age_D_6, 0)), 1, 12)
+          ))
+        ),
+        Subsidized_Rent_BM = case_when(
+          input$Subsidized_Rent != "No" & .data$Scenario == 1
+          # This structure helps coalesce a computation where an input value is NULL
+          ~ (input$Subsidized_Rent_Amount %||% NA_real_),
+          input$Subsidized_Rent != "No" & .data$Scenario > 1
+          ~ (input$Subsidized_Rent_Amount %||% NA_real_) + Take_Home_Pay_BM * 0.08, # REPLACE
+          .default = NA_real_
           )
         )
     return(Calculated_Scenarios)
@@ -2138,12 +2180,71 @@ server <- function(input, output, session) {
       )
   }) 
   
+  # Formatting the data table for presentation in the benefits table
+  Benefits_Data <- reactive({
+    if (input$Plot_Choice != "Monthly household income") {
+      # Display total income in table as annual unless looking at the monthly income plot
+      Income_Data <- Income_Tibble() %>%
+        select(-Total_Income_BM)
+    } else {
+      Income_Data <- Income_Tibble() %>%
+        select(-Total_Income_BY)
+    }
+    
+    Income_Data <- Income_Data %>%
+      select( # Selecting only the columns we need
+        Scenario_Label,
+        starts_with("Total_Income_B"),
+        SA_Status,
+        Health_Benefits,
+        Childcare_Cost_BM,
+        Subsidized_Rent_BM
+      ) %>%
+      # Format Total_Income_BM, Total_Income_BY, and subzidized rent as dollar values
+      mutate(
+        across(starts_with("Total_Income_B"), ~ scales::dollar(.)),
+        Subsidized_Rent_BM = scales::dollar(Subsidized_Rent_BM)
+      ) %>%
+      select( # Remove columns with NAs, to make the table show only those that are relevant to the user
+        where(~ !any(is.na(.)))
+      )
+      # Transposing the table so that Scenario labels become columns and each of the other columns becomes a row with the former column name becoming a row label in the first column.
+    Income_Data_Long <- Income_Data %>%
+      gather(key = "Variable", value = "Value", -Scenario_Label)
+    Income_Data_Wide <- Income_Data_Long %>%
+      spread(key = "Scenario_Label", value = Value) %>%
+      mutate(
+        Variable = case_when(
+          Variable == "Total_Income_BM" ~ "Total Monthly Household Income",
+          Variable == "Total_Income_BY" ~ "Total Annual Household Income",
+          Variable == "Childcare_Cost_BM" ~ "Monthly Childcare Cost",
+          Variable == "SA_Status" ~ paste(input$Program, "status"),
+          Variable == "Health_Benefits" ~ "Health Benefits",
+          Variable == "Subsidized_Rent_BM" ~ "Monthly Subsidized Rent Cost"
+          ),
+        Variable = factor(Variable, levels = c( # Setting the order of the rows in the table
+          "Total Monthly Household Income",
+          "Total Annual Household Income",
+          "Health Benefits",
+          paste(input$Program, "status"),
+          "Monthly Childcare Cost",
+          "Monthly Subsidized Rent Cost"
+          ))
+        ) %>%
+      arrange(Variable) %>%
+      rename(" " = Variable)
+    return(Income_Data_Wide)
+  })
+  
   # Putting the calculated values in a table for viewing while troubleshooting
   output$Income_Table <- renderTable( {
     Income_Tibble()
   })
-  # output$Benefits_Table <- renderTable( {
-  #   Benefits_Data()
-  # })
+  output$Benefits_Table_1 <- renderTable( {
+    Benefits_Data()
+  })
+  output$Plot_Data_Table <- renderTable( {
+    Plot_Data()
+  })
 }
 shinyApp(ui, server)
