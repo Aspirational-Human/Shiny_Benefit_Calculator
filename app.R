@@ -1042,21 +1042,21 @@ ui <- page_fluid(
     # Data Validation tab -----------------------------------------------------
     
     # Turn on this panel to see data calculations for the plots.
-    tabPanel(
-      "Data Validation",
-      card(
-        card_header("Income Table"),
-        tableOutput("Income_Table")
-        ),
-      card(
-        card_header("Plot Data Table"),
-        tableOutput("Plot_Data_Table")
-      ),
-      card(
-        card_header("Benefits Table"),
-        tableOutput("Benefits_Table_1")
-        )
-      ),
+    # tabPanel(
+    #   "Data Validation",
+    #   card(
+    #     card_header("Income Table"),
+    #     tableOutput("Income_Table")
+    #     ),
+    #   card(
+    #     card_header("Plot Data Table"),
+    #     tableOutput("Plot_Data_Table")
+    #   ),
+    #   card(
+    #     card_header("Benefits Table"),
+    #     tableOutput("Benefits_Table_1")
+    #     )
+    #   ),
     
     # More information tab ----------------------------------------------------
     
