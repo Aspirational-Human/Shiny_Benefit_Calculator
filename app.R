@@ -994,15 +994,21 @@ ui <- page_fluid(
              ),
     # Income results tab -----------------------------------------------------
     tabPanel("Income Results",
-             selectInput(
+             layout_column_wrap(
+               width = NULL,
+               style = css(grid_template_columns = "1.2fr 4fr"),
+               gap = "2rem",
+               selectInput(
                inputId = "Plot_Choice",
                label = "Choose a calculation to display",
                choices = c(
                  "Monthly household income",
                  "Total annual household income",
                  "Total household income by month"
-               ),
+                  ),
                selected = "Monthly household income"
+                ),
+               uiOutput("Plot_Description")
              ),
              layout_column_wrap(
                width = 1,
@@ -1023,8 +1029,7 @@ ui <- page_fluid(
                          plotlyOutput("Selected_Income_Plot")
                        )
                      )
-                   ),
-                   uiOutput("Plot_Description")
+                   )
                  )
                ),
                card(
@@ -1454,6 +1459,12 @@ server <- function(input, output, session) {
         input$Program,
         ", tax refunds, and other benefits. Tax refunds and other benefits are paid periodically, and an estimated schedule of these payments can be seen in the <b>Total household income by month</b>."
         ))
+    } else {
+      HTML(paste0(
+        "The <b>Total household income by month</b> calculation shows each work scenario's typical income from all sources, including working, ",
+        input$Program,
+        ", tax refunds, and other benefits. Tax refunds are typically paid in April or May (depending on when you file your income tax return, and other benefits like HST refunds, the Canada Workers Benefit, and the Canada Carbon Rebate are paid quarterly. To help you plan your annual budget, these period payments are shown in the months they are typically paid."
+        ))
     }
   })
   
@@ -1730,7 +1741,8 @@ server <- function(input, output, session) {
         ),
         div(
           style = "width: calc(100% - 40px);",
-          "Other benefits"
+          "Other benefits",
+          Help_Icon("This includes benefits such as HST credits, the Canada Workers Benefit, Canada Carbon Rebate, and other benefits you can automatically receive when you file your income tax return"),
         )
       ),
       
@@ -1767,17 +1779,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # Create reactive data
-  table_data <- reactive({
-    df <- data.frame(
-      RowNames = paste("Row", 1:5),  # Add row names as first column
-      Column1 = c(1:5), #* input$multiplier,
-      Column2 = c(2:6), #* input$multiplier,
-      Column3 = c(3:7) #* input$multiplier
-    )
-    df
-  })
-  
   output$Benefits_Table <- renderReactable({
     # Get all column names from Benefits_Data()
     col_names <- names(Benefits_Data())
@@ -1799,16 +1800,13 @@ server <- function(input, output, session) {
       )
     )
     
-    # Add definitions for scenario columns
-    scenario_colors <- c(Scenario_1_Color, Scenario_2_Color, Scenario_3_Color)
-    
     # Add each scenario column definition, starting from second column
     for(i in 2:length(col_names)) {
       column_defs[[col_names[i]]] <- colDef(
         name = col_names[i],  # Use the actual column name from the data
-        style = list(background = scenario_colors[i-1]),
+        style = list(background = Scenario_Colors[i-1]),
         headerStyle = list(
-          background = scenario_colors[i-1],
+          background = Scenario_Colors[i-1],
           fontWeight = "bold",
           borderBottom = "2px solid #555"
         )
@@ -2225,8 +2223,8 @@ server <- function(input, output, session) {
         Variable = factor(Variable, levels = c( # Setting the order of the rows in the table
           "Total Monthly Household Income",
           "Total Annual Household Income",
-          "Health Benefits",
           paste(input$Program, "status"),
+          "Health Benefits",
           "Monthly Childcare Cost",
           "Monthly Subsidized Rent Cost"
           ))
