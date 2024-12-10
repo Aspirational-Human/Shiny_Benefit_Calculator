@@ -1779,6 +1779,7 @@ server <- function(input, output, session) {
     )
   })
   
+  # Benefits table
   output$Benefits_Table <- renderReactable({
     # Get all column names from Benefits_Data()
     col_names <- names(Benefits_Data())
