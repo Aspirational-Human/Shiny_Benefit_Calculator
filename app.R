@@ -19,6 +19,7 @@ library(shinythemes)
 library(shinyvalidate)
 library(plotly)
 library(reactable)
+library(shinyjs)
 # library(ggiraph)
 # library(ggpattern)
 
@@ -217,6 +218,7 @@ Theme_Colours <- c(
   Light_Purple,
   Light_Brown
 )
+Nav_Tabs <- c("Introduction", "About You", "Work Scenarios", "Income Results", "More Information")
 # Custom CSS for scenario fill patterns
 # css <- HTML(sprintf('
 #   /* SVG Patterns */
@@ -509,15 +511,19 @@ ui <- page_fluid(
   theme = custom_theme,
   # Setting up the ability to provide dynamic user feedback.
   shinyFeedback::useShinyFeedback(),
+  useShinyjs(),
   tags$style(
     paste0(".fa-circle-question {color:", Primary_Color, "}"
            )
     ),
   use_bs_tooltip(),
+  h1("Social Assistance Income Calculator",
+     class = "text-center mb-4"
+     ),
   # Creating tabs to organize the content of the shiny app. 
-  navbarPage(
-    titlePanel("Social Assistance Income Calculator"),
-    tabPanel("Introduction",
+  navset_tab(
+    id = "tabset", # allows navigation through tabs using buttons in the server.
+    nav_panel("Introduction",
              # fluidPage(
                h2("Welcome to the Ontario Social Assistance Income Calculator"),
                HTML("This online calculator can help you estimate how income from work will affect:
@@ -531,15 +537,15 @@ ui <- page_fluid(
                     <br>
                     There are three steps to using this calculator:
                     <ol>
-                    <li> Fill out the information in the <strong>About Me</strong> tab to make the calculations relevant to you and your family.</li>
+                    <li> Fill out the information in the <strong>About You</strong> tab to make the calculations relevant to you and your family.</li>
                     <li> Provide three <strong>Work Scenarios</strong> for which you would like income, social assistance, tax and other benefit estimates.</li>
                     <li> Review the <strong>Income Results</strong> tab to see estimates for each work scenario and go back and adjust the work scenarios as needed.</li>"
                     )
              # )
     ),
-    # About me tab  -------------
-    tabPanel("About Me",
-               h2("About Me"),
+    # About you tab  -------------
+    nav_panel("About You",
+               h2("About You"),
                HTML("Please answer all of the questions on this page to make the calculator results relevant to your situation.<br><br><br>"),
                layout_column_wrap(
                  width = NULL,
@@ -839,7 +845,7 @@ ui <- page_fluid(
               )
       ),
     # Work scenarios tab ----------------
-    tabPanel("Work Scenarios",
+    nav_panel("Work Scenarios",
              # fluidPage(
                h2("Work Scenarios"),
                HTML(paste0("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
@@ -993,7 +999,7 @@ ui <- page_fluid(
                  )
              ),
     # Income results tab -----------------------------------------------------
-    tabPanel("Income Results",
+    nav_panel("Income Results",
              layout_column_wrap(
                width = NULL,
                style = css(grid_template_columns = "1.2fr 4fr"),
@@ -1042,7 +1048,7 @@ ui <- page_fluid(
     # Data Validation tab -----------------------------------------------------
     
     # Turn on this panel to see data calculations for the plots.
-    # tabPanel(
+    # nav_panel(
     #   "Data Validation",
     #   card(
     #     card_header("Income Table"),
@@ -1060,14 +1066,29 @@ ui <- page_fluid(
     
     # More information tab ----------------------------------------------------
     
-    tabPanel("More Information",
+    nav_panel("More Information",
              fluidRow(
                column(
                  9,
                  HTML("This page is currently blank. It may be filled in the future with additional information or FAQ.")
                )
              ))
-               )
+               ),
+  
+  # Navigation buttons ---------------------------------------------------------
+  
+  div(
+    style = "display: flex; justify-content: space-between; padding: 16px;",
+    div(
+      style = "width: 120px;",  # Fixed width for button container
+      actionButton("prevTab", "← Back", class = "btn-primary w-100")
+    ),
+    div(
+      style = "width: 120px;",  # Fixed width for button container
+      actionButton("nextTab", "Next →", class = "btn-primary w-100")
+    )
+  )
+  
   )
 server <- function(input, output, session) {
   # thematic::thematic_shiny()
@@ -1080,7 +1101,7 @@ server <- function(input, output, session) {
   IV$add_rule("SA_Payment", sv_required())
   IV$add_rule("Spouse", sv_required())
   
-  # About Me tab server ---------
+  # About You tab server ---------
   # Creating a variable that tracks the name of the program to which user belongs.
   # Program_Name <- reactiveVal("social assistance")
   # observeEvent(input$Program, {
@@ -1157,7 +1178,7 @@ server <- function(input, output, session) {
       " as your current monthly take-home pay from work",
       Spousal_Descript,
       ".", 
-      "</ul>You can return to the <strong>About Me</strong> tab if you would like to change the work income for Scenario 1."
+      "</ul>You can return to the <strong>About You</strong> tab if you would like to change the work income for Scenario 1."
       )
   })
   
@@ -1878,7 +1899,7 @@ server <- function(input, output, session) {
     # Creating a notice on the results page if there are missing input values
     if (input$Spouse == "" || input$Program == "" || is.null(input$SA_Payment)) {
     Missing <- showNotification(
-      HTML("Income results are not calculated until you have inputed all required information on the <strong>About Me</strong> tab"),
+      HTML("Income results are not calculated until you have inputed all required information on the <strong>About You</strong> tab"),
       duration = NULL,
       closeButton = TRUE,
       type = "error",
@@ -2245,5 +2266,50 @@ server <- function(input, output, session) {
   output$Plot_Data_Table <- renderTable( {
     Plot_Data()
   })
+  
+  # Navigation button server ---------------------------------------------------
+  
+    # Function to get current tab number
+    getCurrentTab <- reactive({
+      which(input$tabset == Nav_Tabs)
+    })
+    
+    # Hide/show buttons based on current tab
+    observe({
+      current_tab <- getCurrentTab()
+      
+      # Hide/show Previous button
+      if (current_tab <= 1) {
+        shinyjs::hide("prevTab")
+      } else {
+        shinyjs::show("prevTab")
+      }
+      
+      # Hide/show Next button
+      if (current_tab >= length(Nav_Tabs)) {  # Use length instead of hardcoded number
+        shinyjs::hide("nextTab")
+      } else {
+        shinyjs::show("nextTab")
+      }
+    })
+    
+    # Observer for the "Next" button
+    observeEvent(input$nextTab, {
+      current_tab <- getCurrentTab()
+      if (current_tab < length(Nav_Tabs)) {  # Use length instead of hardcoded number
+        updateTabsetPanel(session, "tabset", 
+                          selected = Nav_Tabs[current_tab + 1])  # Use Nav_Tabs vector
+      }
+    })
+    
+    # Observer for the "Previous" button
+    observeEvent(input$prevTab, {
+      current_tab <- getCurrentTab()
+      if (current_tab > 1) {
+        updateTabsetPanel(session, "tabset", 
+                          selected = Nav_Tabs[current_tab - 1])  # Use Nav_Tabs vector
+      }
+    })
+  
 }
 shinyApp(ui, server)
