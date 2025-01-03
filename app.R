@@ -523,30 +523,43 @@ ui <- page_fluid(
   # Creating tabs to organize the content of the shiny app. 
   navset_tab(
     id = "tabset", # allows navigation through tabs using buttons in the server.
+    
+    # Introduction tab ---------------------------------------------------------
     nav_panel("Introduction",
-             # fluidPage(
-               h2("Welcome to the Ontario Social Assistance Income Calculator"),
-               HTML("This online calculator can help you estimate how income from work will affect:
+             HTML("<br>"),
+             h2("Welcome to the Ontario Social Assistance Income Calculator"),
+             HTML("<br>"),
+             h4(HTML("<strong>Who is this calculator for?</strong>")),
+             HTML("This calculator is for social assistance recipients of <strong>Ontario Works</strong> or the <strong>Ontario Disability Support Program (ODSP)</strong>. It can help you estimate how work income will affect:
                     <ul>
-                    <li>social assistance payments from <strong>Ontario Works</strong> or <strong>Ontario Disability Support Program (ODSP)</strong></li>
+                    <li>social assistance payments from Ontario Works or ODSP</li>
                     <li>income tax refunds</li>
                     <li>other benefit payments from federal and provincial programs</li>
-                    </ul>
-                    This calculator is <strong>free</strong> to use and does <strong>not</strong> collect or store your personal information. This calculator is made avaiable without any warranty as to the accuracy of its calculations.
-                    <br>
-                    <br>
-                    There are three steps to using this calculator:
+                    </ul>"
+             ),
+             h4(HTML("<strong>Terms of use</strong>")),
+             HTML("This calculator is <strong>free</strong> to use and does <strong>not</strong> collect or store your personal information. This calculator is made avaiable without any warranty as to the accuracy of its calculations.
+                  <br>
+                  <br>"
+             ),
+             h4(HTML("<strong>3 Steps to use this calculator</strong>")),
+             HTML("There are three steps to using this calculator:
                     <ol>
-                    <li> Fill out the information in the <strong>About You</strong> tab to make the calculations relevant to you and your family.</li>
+                    <li> Fill out the information in the <strong>About You</strong> tab to make the calculations relevant for your situation.</li>
                     <li> Provide three <strong>Work Scenarios</strong> for which you would like income, social assistance, tax and other benefit estimates.</li>
-                    <li> Review the <strong>Income Results</strong> tab to see estimates for each work scenario and go back and adjust the work scenarios as needed.</li>"
-                    )
-             # )
+                    <li> Review the <strong>Income Results</strong> tab to see estimates for each work scenario and go back and adjust the work scenarios as needed.</li>
+                    </ol>"
+             ),
+             h4(HTML("<strong>Help with the calculator</strong>")),
+             HTML("On each page you can see help icons."), 
+             HTML("Point at an icon with the mouse for helpful information.")
     ),
     # About you tab  -------------
-    nav_panel("About You",
-               h2("About You"),
-               HTML("Please answer all of the questions on this page to make the calculator results relevant to your situation.<br><br><br>"),
+    nav_panel(
+      title = HTML("<strong>Step 1:</strong> About you"),
+      value = "About You",
+      h2("About You"),
+      HTML("Please answer all of the questions on this page to make the calculator results relevant to your situation.<br><br><br>"),
                layout_column_wrap(
                  width = NULL,
                  style = css(grid_template_columns = "1fr 3fr"),
@@ -845,10 +858,11 @@ ui <- page_fluid(
               )
       ),
     # Work scenarios tab ----------------
-    nav_panel("Work Scenarios",
-             # fluidPage(
-               h2("Work Scenarios"),
-               HTML(paste0("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
+    nav_panel(
+      title = HTML("<strong>Step 2:</strong> Work scenarios"),
+      value = "Work Scenarios",
+      h2("Work Scenarios"),
+      HTML(paste0("On this page you can customize three work scenarios to see how different employment situations will affect your income, social assistance, tax and other benefit payments.
                     <br>
                     <br>
                     <ul>
@@ -857,12 +871,12 @@ ui <- page_fluid(
                     <li><span style='background-color:", Scenario_Colors[3], ";'><strong>Scenario 3</strong></span> has been set to full-time employment at minimum wage.</li>
                     </ul>"
                     )
-                    ),
-               layout_column_wrap(
-                 width = NULL,
-                 style = css(grid_template_columns = "28% 35% 35%"),
-                 # Scenario 1 Card.
-                 card(card_title(HTML("<strong>Scenario 1</strong> - Your Current Situation")),
+                ),
+      layout_column_wrap(
+         width = NULL,
+         style = css(grid_template_columns = "28% 35% 35%"),
+         # Scenario 1 Card.
+         card(card_title(HTML("<strong>Scenario 1</strong> - Your Current Situation")),
                       style = paste0("background-color: ", Scenario_Colors[1], ";"),
                       htmlOutput("Scen_1_Descript"),
                       ),
@@ -999,7 +1013,9 @@ ui <- page_fluid(
                  )
              ),
     # Income results tab -----------------------------------------------------
-    nav_panel("Income Results",
+    nav_panel(
+      title = HTML("<strong>Step 3:</strong> Income results"),
+      value = "Income Results",
              layout_column_wrap(
                width = NULL,
                style = css(grid_template_columns = "1.2fr 4fr"),
@@ -1101,16 +1117,7 @@ server <- function(input, output, session) {
   IV$add_rule("SA_Payment", sv_required())
   IV$add_rule("Spouse", sv_required())
   
-  # About You tab server ---------
-  # Creating a variable that tracks the name of the program to which user belongs.
-  # Program_Name <- reactiveVal("social assistance")
-  # observeEvent(input$Program, {
-  #   if(input$Program == "Ontario Works") {
-  #     Program_Name("Ontario Works")
-  #   } else {
-  #     Program_Name("ODSP")
-  #   }
-  # }, ignoreInit = TRUE)
+  # About You tab server -------------------------------------------------------
   
   # Hiding missing input feedback once input detected.
   observeEvent(input$Program, {
