@@ -551,7 +551,15 @@ ui <- page_fluid(
                     </ol>"
              ),
              h4(HTML("<strong>Help with the calculator</strong>")),
-             HTML("On each page you can see help icons."), 
+             HTML("On each page you can see help icons like this. "), 
+             tooltip(
+               trigger = bs_icon("question-circle-fill"
+                                 , class = "text-primary"
+                                 , title = "Example help icon"
+                                 ),
+               "By pointing your mouse at this icon, you can read more helpful information about a topic.",
+               placement = "top"
+             ),
              HTML("Point at an icon with the mouse for helpful information.")
     ),
     # About you tab  -------------
@@ -866,9 +874,9 @@ ui <- page_fluid(
                     <br>
                     <br>
                     <ul>
-                    <li><span style='background-color:", Scenario_Colors[1], ";'><strong>Scenario 1</strong></span> has been set to your current situation.</li>
-                    <li><span style='background-color:", Scenario_Colors[2], ";'><strong>Scenario 2</strong></span> has been set to part-time employment at minimum wage ($17.20 an hour).</li>
-                    <li><span style='background-color:", Scenario_Colors[3], ";'><strong>Scenario 3</strong></span> has been set to full-time employment at minimum wage.</li>
+                    <li><span style='background-color:", Scenario_Colors[1], ";'><strong>Scenario 1</strong></span> has been set to your current situation based on information you provided in the <strong>About you</strong> page.</li>
+                    <li><span style='background-color:", Scenario_Colors[2], ";'><strong>Scenario 2</strong></span> has been set to part-time employment at minimum wage ($17.20 an hour). You can change this scenario in the blue section below if you are interested in a job where you work different hours or for a different wage or salary.</li>
+                    <li><span style='background-color:", Scenario_Colors[3], ";'><strong>Scenario 3</strong></span> has been set to full-time employment at minimum wage. You can change this scenario in the green section below if you are interested in a different kind of job.</li>
                     </ul>"
                     )
                 ),
@@ -882,15 +890,12 @@ ui <- page_fluid(
                       ),
                  # Scenario 2 Card.
                  card(
-                   # class = "stripe-card",
                    card_title(
-                     # class = "text-container",
                      htmlOutput("Scen_2_Descript")
                      ),
                    style = paste0("background-color: ", Scenario_Colors[2], ";"),
                    card_body(
                      div(
-                       # class = "text-container",
                    textInput(
                      "Scen_2_Title",
                      label = tooltip(
@@ -898,14 +903,14 @@ ui <- page_fluid(
                            "Description of Scenario 2",
                            Help_Icon("Info about changing Scenario 2 description")
                           ),
-                         "You can change the description of Scenario 2 to match the employment situation you want to calculate",
-                         placement = "top"
+                         "You can change the description of Scenario 2 to match an employment situation you want to calculate. For example 'fastfood job downtown'",
+                         placement = "top",
+                         id = "Scen_2_Descript_Tip"
                        ),
-                      value = "Work Part-time at Minimum Wage"
+                      value = "Part-time Minimum Wage Job"
                       )
                    ),
                    div(
-                     # class = "text-container",
                    radioButtons(
                         "Format_2",
                         "Prefered income format",
@@ -939,7 +944,6 @@ ui <- page_fluid(
                       )
                    ),
                    div(
-                     # class = "text-container",
                       uiOutput(
                         "Scen_2_Parameters"
                         )
@@ -964,10 +968,11 @@ ui <- page_fluid(
                              "Description of Scenario 3",
                              Help_Icon("Info about changing Scenario 3 description")
                            ),
-                           "You can change the description of Scenario 3 to match the employment situation you want to calculate",
-                           placement = "top"
+                           "You can change the description of Scenario 3 to match an employment situation you want to calculate. For example 'Warehouse job with my aunt'",
+                           placement = "top",
+                           id = "Scen_3_Descript_Tip"
                          ),
-                         value = "Work Full-time at Minimum Wage"
+                         value = "Full-time Minimum Wage Job"
                        ) 
                      ),
                      div(
@@ -1171,7 +1176,7 @@ server <- function(input, output, session) {
   
   # Work scenarios tab server ---------------
   # Dynamic description of current situation displayed in Scenario 1 card.
-  output$Scen_1_Descript <- renderText({
+  output$Scen_1_Descript <- renderUI({
     Spousal_Descript <- if(input$Spouse == "Yes"){
       paste0(
         "<li>and ",
@@ -1179,14 +1184,14 @@ server <- function(input, output, session) {
         " as your spouse's current monthly take-home pay from work"
       )}
     else ""
-    paste0(
-      "On the previous page you put <ul><br><li>",
+    HTML(paste0(
+      "On the previous page you put <ul><li>",
       dollar(input$Take_Home_Pay_1_PM),
       " as your current monthly take-home pay from work",
       Spousal_Descript,
-      ".", 
-      "</ul>You can return to the <strong>About You</strong> tab if you would like to change the work income for Scenario 1."
-      )
+      ".</li></ul>", 
+      "<div style='margin-top: 10px;'>You can return to the <strong>About You</strong> page if you would like to change the work income for Scenario 1.</div>"
+      ))
   })
   
   # Titles of cards 2 and 3 supplied by user to reflect the scenarios they want calculated.
@@ -1198,36 +1203,64 @@ server <- function(input, output, session) {
   })
   
   # Want to make the default scenario descriptions clear in that they assume both spouses work.
-  # observeEvent(input$Spouse, {
-  #   if (input$Spouse == "Yes") {
-  #     updateTextInput(
-  #       session = shiny_session,
-  #       inputId = "Scen_2_Title",
-  #       value = "Both spouses work full-time at minimum wage"
-  #     )
-  #   } else {
-  #     updateTextInput(
-  #       session = shiny_session,
-  #       inputId = "Scen_2_Title",
-  #       value = "Work full-time at minimum wage"
-  #     )
-  #   }
-  # })
-  # observeEvent(input$Spouse, {
-  #   if (input$Spouse == "Yes") {
-  #     updateTextInput(
-  #       session = shiny_session,
-  #       inputId = "Scen_3_Title",
-  #       value = "Both spouses work full-time at minimum wage"
-  #     )
-  #   } else {
-  #     updateTextInput(
-  #       session = shiny_session,
-  #       inputId = "Scen_3_Title",
-  #       value = "Work full-time at minimum wage"
-  #     )
-  #   }
-  # })
+  observeEvent(input$Spouse, {
+    if (input$Spouse == "Yes") {
+      updateTextInput(
+        session = shiny_session,
+        inputId = "Scen_2_Title",
+        value = "Both spouses have part-time minimum wage jobs"
+      )
+    } else {
+      updateTextInput(
+        session = shiny_session,
+        inputId = "Scen_2_Title",
+        value = "Part-time minimum wage job"
+      )
+    }
+  })
+  observeEvent(input$Spouse, {
+    if (input$Spouse == "Yes") {
+      updateTextInput(
+        session = shiny_session,
+        inputId = "Scen_3_Title",
+        value = "Both spouses have full-time minimum wage jobs"
+      )
+    } else {
+      updateTextInput(
+        session = shiny_session,
+        inputId = "Scen_3_Title",
+        value = "Full-time minimum wage job"
+      )
+    }
+  })
+  
+  # Also updating the tooltip associated with the work scenario titles depending on spouse status.
+  observeEvent(list(input$Spouse, input$Program), {
+    Spouse_Instruct_Scen_2 <- if(input$Spouse == "Yes") {
+      "'my spouse works but I do not'"
+    } else {
+      "'fastfood job downtown'"
+    }
+    Spouse_Instruct_Scen_3 <- if(input$Spouse == "Yes") {
+      "'my spouse works part-time and I work full-time'"
+    } else {
+      "'warehouse job with my aunt'"
+    }
+    update_tooltip(
+      session = shiny_session,
+      id = "Scen_2_Descript_Tip",
+      label = paste("You can change the description of Scenario 2 to match an employment situation you want to calculate. For example",
+                    Spouse_Instruct_Scen_2
+      )
+    )
+    update_tooltip(
+      session = shiny_session,
+      id = "Scen_3_Descript_Tip",
+      label = paste("You can change the description of Scenario 2 to match an employment situation you want to calculate. For example",
+                    Spouse_Instruct_Scen_3
+                    )
+    )
+  })
   
   # Dynamically sized Scenario 2 card elements to accommodate spouse items.
   Spouse_Denom <- eventReactive(input$Spouse, {
