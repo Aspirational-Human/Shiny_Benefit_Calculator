@@ -1842,6 +1842,20 @@ server <- function(input, output, session) {
   
   # Benefits table
   output$Benefits_Table <- renderReactable({
+    
+    # Function to generate tooltip content
+    generateTooltip <- function(value) {
+      if (grepl("Inactive", value)) {
+        return("Your social assistance status is inactive because your income exceeds the eligibility threshold.")
+      } else if (grepl("Extended Employment Health Benefits", value)) {
+        return("You may be eligible for extended employment health benefits due to your inactive social assistance status.")
+      } else if (grepl("covered by", value)) {
+        return("Childcare costs are fully covered by the social assistance program.")
+      } else {
+        return(NULL)
+      }
+    }
+    
     # Get all column names from Benefits_Data()
     col_names <- names(Benefits_Data())
     
@@ -1866,6 +1880,20 @@ server <- function(input, output, session) {
     for(i in 2:length(col_names)) {
       column_defs[[col_names[i]]] <- colDef(
         name = col_names[i],  # Use the actual column name from the data
+        html = TRUE, # add this to interpret the HTML content
+        cell = function(value) {
+          tooltip <- generateTooltip(value)
+          if (!is.null(tooltip)) {
+            paste0(
+              '<div title="', tooltip, '">',
+              value,
+              ' <i class="fa fa-question-circle text-primary ms-2"></i>',
+              '</div>'
+            )
+          } else {
+            value
+          }
+        },
         style = list(background = Scenario_Colors[i-1]),
         headerStyle = list(
           background = Scenario_Colors[i-1],
