@@ -1843,16 +1843,55 @@ server <- function(input, output, session) {
   # Benefits table
   output$Benefits_Table <- renderReactable({
     
-    # Function to generate tooltip content
-    generateTooltip <- function(value) {
-      if (grepl("Inactive", value)) {
-        return("Your social assistance status is inactive because your income exceeds the eligibility threshold.")
-      } else if (grepl("Extended Employment Health Benefits", value)) {
-        return("You may be eligible for extended employment health benefits due to your inactive social assistance status.")
-      } else if (grepl("covered by", value)) {
-        return("Childcare costs are fully covered by the social assistance program.")
+    # Function to place tooltip icon in specific cells of summary results table
+    Results_Table_Tooltip <- function(value) {
+      # Generating the content of each tooltip
+      Tool_Tip_Content <- if (str_detect(value, "Inactive")) {
+        paste("Your",
+              input$Program,
+              "status becomes inactive when your payments are reduced to $0 as a result of excess work earnings. If you need to restart",
+              input$Program,
+              "payments within 6 months, because you lose your job or your work earnings decrease, your caseworker can help you do so without needing to reapply.")
+      } else if (str_detect(value, "Extended Employment Health Benefits")) {
+        "You may be eligible for extended employment health benefits due to your inactive social assistance status."
+      } else if (str_detect(value, "covered by")) {
+        "Childcare costs are fully covered by the social assistance program."
+      }
+      else if (str_detect(value, "Total Monthly Household Income")) {
+        paste(
+          "Total monthly household income includes",
+          input$Program,
+          "payments and earnings from work after payroll deductions")
+      }
+      else if (str_detect(value, "Total Annual Household Income")) {
+        paste(
+          "Total annual household income includes",
+          input$Program,
+          "payments, earnings from work after payroll deductions, income tax refunds, and payments from other benefit programs you can automatically receive when you file your income tax return, such as HST credits, the Canada Workers benefit, and the Canada Carbon Rebate.")
+      }
+      else if(str_detect(value, "status")) {
+        paste(
+          "An active",
+          input$Program,
+          "status means you continue to receive payments from the program, even if those payments are reduced as a result of work income. Once your payments have been reduced to $0 as a result of your work income, your status will become inactive and you will no longer have access to health benefits through the program. If you lose your job or your work income reduces, you can reactivate your",
+          input$Program,
+          "status without needing to reapply by contacting your caseworker."
+        )
+      }
+      else {
+        NULL
+      }
+      
+      # Placing the tooltip with icon in cell to which it pertains
+      if (!is.null(Tool_Tip_Content)) {
+        paste0(
+          '<div title="', Tool_Tip_Content, '">',
+          value,
+          ' <i class="fa fa-question-circle text-primary ms-2"></i>',
+          '</div>'
+        )
       } else {
-        return(NULL)
+        value
       }
     }
     
@@ -1865,6 +1904,8 @@ server <- function(input, output, session) {
     # Add definition for first column (Variable)
     column_defs[[col_names[1]]] <- colDef(
       name = col_names[1],
+      html = TRUE,
+      cell = function(value) Results_Table_Tooltip(value),
       style = list(
         background = "#e6e6e6",
         fontWeight = "bold",
@@ -1881,19 +1922,7 @@ server <- function(input, output, session) {
       column_defs[[col_names[i]]] <- colDef(
         name = col_names[i],  # Use the actual column name from the data
         html = TRUE, # add this to interpret the HTML content
-        cell = function(value) {
-          tooltip <- generateTooltip(value)
-          if (!is.null(tooltip)) {
-            paste0(
-              '<div title="', tooltip, '">',
-              value,
-              ' <i class="fa fa-question-circle text-primary ms-2"></i>',
-              '</div>'
-            )
-          } else {
-            value
-          }
-        },
+        cell = function(value) Results_Table_Tooltip(value),
         style = list(background = Scenario_Colors[i-1]),
         headerStyle = list(
           background = Scenario_Colors[i-1],
