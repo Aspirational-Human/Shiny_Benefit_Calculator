@@ -1023,7 +1023,10 @@ ui <- page_fluid(
       value = "Income Results",
              layout_column_wrap(
                width = NULL,
-               style = css(grid_template_columns = "1.2fr 4fr"),
+               style = css(
+                 grid_template_columns = "1.2fr 4fr",
+                 padding_top = "2rem"
+                 ),
                gap = "2rem",
                selectInput(
                inputId = "Plot_Choice",
@@ -1040,7 +1043,11 @@ ui <- page_fluid(
              layout_column_wrap(
                width = 1,
                card(
-                 # card_header("Comparing income across scenarios"),
+                 card_header(HTML("<b>Summary Table</b>: Income and other benefits")),
+                 reactableOutput("Benefits_Table")
+                ),
+               card(
+                 card_header(HTML("<b>Summary Chart</b>: Income sources across scenarios")),
                  card_body(
                    layout_column_wrap(
                      width = NULL,  # Creates 6 columns total
@@ -1058,10 +1065,6 @@ ui <- page_fluid(
                      )
                    )
                  )
-               ),
-               card(
-                 card_header("Income and other benefits"),
-                 reactableOutput("Benefits_Table")
                )
              )
     ),
@@ -1508,25 +1511,31 @@ server <- function(input, output, session) {
   
   # Description of the income results plots
   output$Plot_Description <- renderUI({
-    if (input$Plot_Choice == "Monthly household income") {
-      HTML(paste(
-        "The <b>Monthly household income</b> calculation shows each work scenario's typical income from working and",
-        input$Program,
-        "after all deductions. Tax refunds and other benefits are not shown in this calculation because they are not paid monthly. See the other two calculations for estimates of those payments."
-        ))
+   Calc_Specific_Text <-  if (input$Plot_Choice == "Monthly household income") {
+      paste(
+                 "The <b>Monthly household income</b> calculation shows each work scenario's typical income from working and",
+                 input$Program,
+                 "after all deductions. Tax refunds and other benefits are not shown in this calculation because they are not paid monthly. See the other two calculations for estimates of those payments."
+      )
     } else if (input$Plot_Choice == "Total annual household income") {
-      HTML(paste0(
-        "The <b>Total annual household income</b> calculation shows each work scenario's typical income from all sources, including working, ",
-        input$Program,
-        ", tax refunds, and other benefits. Tax refunds and other benefits are paid periodically, and an estimated schedule of these payments can be seen in the <b>Total household income by month</b>."
-        ))
+      paste(
+                 "The <b>Total annual household income</b> calculation shows each work scenario's typical income from all sources, including working, ",
+                 input$Program,
+                 ", tax refunds, and other benefits. Tax refunds and other benefits are paid periodically, and an estimated schedule of these payments can be seen in the <b>Total household income by month</b>."
+      )
     } else {
-      HTML(paste0(
-        "The <b>Total household income by month</b> calculation shows each work scenario's typical income from all sources, including working, ",
-        input$Program,
-        ", tax refunds, and other benefits. Tax refunds are typically paid in April or May (depending on when you file your income tax return, and other benefits like HST refunds, the Canada Workers Benefit, and the Canada Carbon Rebate are paid quarterly. To help you plan your annual budget, these period payments are shown in the months they are typically paid."
-        ))
+      paste(
+                 "The <b>Total household income by month</b> calculation shows each work scenario's typical income from all sources, including working, ",
+                 input$Program,
+                 ", tax refunds, and other benefits. Tax refunds are typically paid in April or May (depending on when you file your income tax return, and other benefits like HST refunds, the Canada Workers Benefit, and the Canada Carbon Rebate are paid quarterly. To help you plan your annual budget, these period payments are shown in the months they are typically paid."
+      )
     }
+   HTML(paste0(
+     '<span style="white-space: normal;">',
+     Calc_Specific_Text,
+     "<br><br>The <b>Summary Table</b> shows your total monthly income and other benefits affected by work income. The <b>Summary Chart</b> shows how your various sources of income add to that total.",
+     '</span>'
+   ))
   })
   
   # Create reactive patterns for income sources
